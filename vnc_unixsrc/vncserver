@@ -34,7 +34,8 @@ $depth = 24;
 $desktopName = "X";
 $vncClasses = "/usr/local/vnc/classes";
 $vncUserDir = "$ENV{HOME}/.vnc";
-$fontPath = "unix/:7100";
+# $fontPath = "unix/:7100";
+$fontPath = "/usr/share/fonts/X11/misc";
 $authType = "-rfbauth $vncUserDir/passwd";
 
 # Read configuration from the system-wide and user files if present.
