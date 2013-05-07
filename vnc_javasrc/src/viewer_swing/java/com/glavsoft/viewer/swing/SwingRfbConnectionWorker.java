@@ -71,7 +71,7 @@ public class SwingRfbConnectionWorker extends SwingWorker<Void, String> implemen
 
         workingProtocol = new Protocol(reader, writer,
                 new PasswordChooser(connectionString, parentWindow, this),
-                rfbSettings, workingSocket);
+                rfbSettings, workingSocket, this);
         String message = "Handshaking with remote host";
         logger.info(message);
         publish(message);

@@ -76,15 +76,17 @@ public class Protocol implements ProtocolContext, IChangeSettingsListener {
     private boolean isTight;
     private String protocolVersion;
 	private Socket workingSocket;
+	private final RfbConnectionWorker worker;
 
     public Protocol(Reader reader, Writer writer,
 			IPasswordRetriever passwordRetriever, ProtocolSettings settings,
-			Socket workingSocket) {
+			Socket workingSocket, RfbConnectionWorker worker) {
 		this.reader = reader;
 		this.writer = writer;
 		this.passwordRetriever = passwordRetriever;
 		this.settings = settings;
 		this.workingSocket = workingSocket;
+		this.worker = worker;
 		decoders = new DecodersContainer();
 		decoders.instantiateDecodersWhenNeeded(settings.encodings);
 		state = new HandshakeState(this);
@@ -332,11 +334,11 @@ public class Protocol implements ProtocolContext, IChangeSettingsListener {
 	@Override
 	public synchronized void restartSession() {
 		cleanUpSession();
-		// TODO(joshma) Need to set newWorkingSocket on parent Worker.
-		Socket newWorkingSocket = waitForConnection(workingSocket);
+		workingSocket = waitForConnection(workingSocket);
+		worker.setWorkingSocket(workingSocket);
 		try {
-			reader = new Reader(newWorkingSocket.getInputStream());
-			writer = new Writer(newWorkingSocket.getOutputStream());
+			reader = new Reader(workingSocket.getInputStream());
+			writer = new Writer(workingSocket.getOutputStream());
 			state = new HandshakeState(this);
 			handshake();
 			
