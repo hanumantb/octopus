@@ -334,6 +334,7 @@ public class Protocol implements ProtocolContext, IChangeSettingsListener {
 	@Override
 	public synchronized void restartSession() {
 		cleanUpSession();
+		worker.setNetworkStatus("Reconnecting...");
 		workingSocket = waitForConnection(workingSocket);
 		worker.setWorkingSocket(workingSocket);
 		try {
@@ -353,6 +354,15 @@ public class Protocol implements ProtocolContext, IChangeSettingsListener {
 					decoders, this);
 			receiverThread = new Thread(receiverTask, "RfbReceiverTask");
 			receiverThread.start();
+			worker.setNetworkStatus("Done.");
+			(new Thread() {
+				public void run() {
+					try {
+						Thread.sleep(5000);
+					} catch (InterruptedException e) { /* nop */ }
+					worker.setNetworkStatus("");
+				}
+			}).start();
 		} catch (IOException e) {
 			e.printStackTrace();
 		} catch (UnsupportedProtocolVersionException e) {

@@ -41,4 +41,6 @@ public interface RfbConnectionWorker extends ConnectionWorker<Void> {
 
     void setConnectionString(String connectionString);
 
+	void setNetworkStatus(String status);
+
 }

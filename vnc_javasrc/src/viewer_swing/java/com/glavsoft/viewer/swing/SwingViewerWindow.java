@@ -80,6 +80,7 @@ public class SwingViewerWindow implements IChangeSettingsListener {
 
     private boolean isZoomToFitSelected;
     private List<JComponent> kbdButtons;
+	private String status;
 
     public SwingViewerWindow(Protocol workingProtocol, ProtocolSettings rfbSettings, UiSettings uiSettings, Surface surface,
                              boolean isSeparateFrame, boolean isApplet, Viewer viewer, String connectionString,
@@ -93,6 +94,7 @@ public class SwingViewerWindow implements IChangeSettingsListener {
         this.viewer = viewer;
         this.connectionString = connectionString;
         this.presenter = presenter;
+        this.status = "";
         createContainer(surface, isApplet, viewer);
 
         if (uiSettings.showControls) {
@@ -200,7 +202,11 @@ public class SwingViewerWindow implements IChangeSettingsListener {
 
     private void updateWindowTitle() {
         if (isSeparateFrame) {
-			frame.setTitle(remoteDesktopName + " [zoom: " + uiSettings.getScalePercentFormatted() + "%]");
+        	String title = remoteDesktopName + " [zoom: " + uiSettings.getScalePercentFormatted() + "%]";
+        	if (!status.isEmpty()) {
+        		title += " ~~ " + status;
+        	}
+			frame.setTitle(title);
 		}
     }
 
@@ -893,4 +899,9 @@ public class SwingViewerWindow implements IChangeSettingsListener {
         infoDialog.setModalityType(Dialog.ModalityType.MODELESS);
         infoDialog.setVisible(true);
     }
+
+	public void setNetworkStatus(String status) {
+		this.status = status;
+		updateWindowTitle();
+	}
 }
