@@ -71,7 +71,7 @@ public class SwingRfbConnectionWorker extends SwingWorker<Void, String> implemen
 
         workingProtocol = new Protocol(reader, writer,
                 new PasswordChooser(connectionString, parentWindow, this),
-                rfbSettings);
+                rfbSettings, workingSocket);
         String message = "Handshaking with remote host";
         logger.info(message);
         publish(message);
@@ -234,6 +234,7 @@ public class SwingRfbConnectionWorker extends SwingWorker<Void, String> implemen
         private String connectionString;
         private final JFrame owner;
         private final ConnectionWorker onCancel;
+        private String cachedPassword;
 
         private PasswordChooser(String connectionString, JFrame parentWindow, ConnectionWorker onCancel) {
             this.connectionString = connectionString;
@@ -243,9 +244,12 @@ public class SwingRfbConnectionWorker extends SwingWorker<Void, String> implemen
 
         @Override
         public String getPassword() {
-            return Strings.isTrimmedEmpty(predefinedPassword) ?
+        	if (cachedPassword == null) {
+        		cachedPassword = Strings.isTrimmedEmpty(predefinedPassword) ?
                     getPasswordFromGUI() :
                     predefinedPassword;
+        	}
+        	return cachedPassword;
         }
 
         private String getPasswordFromGUI() {

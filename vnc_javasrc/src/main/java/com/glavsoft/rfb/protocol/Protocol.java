@@ -24,9 +24,21 @@
 
 package com.glavsoft.rfb.protocol;
 
+import java.io.IOException;
+import java.net.Socket;
+import java.util.logging.Logger;
+
 import com.glavsoft.core.SettingsChangedEvent;
-import com.glavsoft.exceptions.*;
-import com.glavsoft.rfb.*;
+import com.glavsoft.exceptions.AuthenticationFailedException;
+import com.glavsoft.exceptions.FatalException;
+import com.glavsoft.exceptions.TransportException;
+import com.glavsoft.exceptions.UnsupportedProtocolVersionException;
+import com.glavsoft.exceptions.UnsupportedSecurityTypeException;
+import com.glavsoft.rfb.ClipboardController;
+import com.glavsoft.rfb.IChangeSettingsListener;
+import com.glavsoft.rfb.IPasswordRetriever;
+import com.glavsoft.rfb.IRepaintController;
+import com.glavsoft.rfb.IRfbSessionListener;
 import com.glavsoft.rfb.client.ClientToServerMessage;
 import com.glavsoft.rfb.client.FramebufferUpdateRequestMessage;
 import com.glavsoft.rfb.client.SetEncodingsMessage;
@@ -37,10 +49,10 @@ import com.glavsoft.rfb.protocol.state.HandshakeState;
 import com.glavsoft.rfb.protocol.state.ProtocolState;
 import com.glavsoft.transport.Reader;
 import com.glavsoft.transport.Writer;
-
-import java.util.logging.Logger;
+import com.glavsoft.viewer.RfbConnectionWorker;
 
 public class Protocol implements ProtocolContext, IChangeSettingsListener {
+	private static final int RECONNECT_WAIT_TIME = 2000;
 	private ProtocolState state;
 	private final Logger logger = Logger.getLogger("com.glavsoft.rfb.protocol");
 	private final IPasswordRetriever passwordRetriever;
@@ -48,8 +60,8 @@ public class Protocol implements ProtocolContext, IChangeSettingsListener {
 	private int fbWidth;
 	private int fbHeight;
 	private PixelFormat pixelFormat;
-	private final Reader reader;
-	private final Writer writer;
+	private Reader reader;
+	private Writer writer;
 	private String remoteDesktopName;
 	private MessageQueue messageQueue;
 	private final DecodersContainer decoders;
@@ -57,18 +69,22 @@ public class Protocol implements ProtocolContext, IChangeSettingsListener {
 	private ReceiverTask receiverTask;
 	private IRfbSessionListener rfbSessionListener;
 	private IRepaintController repaintController;
+	private ClipboardController clipboardController;
 	private PixelFormat serverPixelFormat;
 	private Thread senderThread;
 	private Thread receiverThread;
     private boolean isTight;
     private String protocolVersion;
+	private Socket workingSocket;
 
     public Protocol(Reader reader, Writer writer,
-			IPasswordRetriever passwordRetriever, ProtocolSettings settings) {
+			IPasswordRetriever passwordRetriever, ProtocolSettings settings,
+			Socket workingSocket) {
 		this.reader = reader;
 		this.writer = writer;
 		this.passwordRetriever = passwordRetriever;
 		this.settings = settings;
+		this.workingSocket = workingSocket;
 		decoders = new DecodersContainer();
 		decoders.instantiateDecodersWhenNeeded(settings.encodings);
 		state = new HandshakeState(this);
@@ -171,6 +187,7 @@ public class Protocol implements ProtocolContext, IChangeSettingsListener {
 			IRepaintController repaintController, ClipboardController clipboardController) {
 		this.rfbSessionListener = rfbSessionListener;
 		this.repaintController = repaintController;
+		this.clipboardController = clipboardController;
 //		if (settings.getBitsPerPixel() == 0) {
 //			settings.setBitsPerPixel(pixelFormat.bitsPerPixel); // the same the server sent when not initialized yet
 //		}
@@ -296,5 +313,57 @@ public class Protocol implements ProtocolContext, IChangeSettingsListener {
     public String getProtocolVersion() {
         return protocolVersion;
     }
+    
+    private Socket waitForConnection(Socket oldSocket) {
+    	while(true) {
+    		try {
+    			System.out.println("Trying to connect to " + oldSocket.getInetAddress());
+				return new Socket(oldSocket.getInetAddress(), oldSocket.getPort());
+			} catch (IOException e) { /* nop */ }
+    		
+    		try {
+				Thread.sleep(RECONNECT_WAIT_TIME);
+			} catch (InterruptedException e) {
+				return null;
+			}
+    	}
+    }
+
+	@Override
+	public synchronized void restartSession() {
+		cleanUpSession();
+		// TODO(joshma) Need to set newWorkingSocket on parent Worker.
+		Socket newWorkingSocket = waitForConnection(workingSocket);
+		try {
+			reader = new Reader(newWorkingSocket.getInputStream());
+			writer = new Writer(newWorkingSocket.getOutputStream());
+			state = new HandshakeState(this);
+			handshake();
+			
+			sendRefreshMessage();
+			senderTask = new SenderTask(messageQueue, writer, this);
+			senderThread = new Thread(senderTask, "RfbSenderTask");
+			senderThread.start();
+			decoders.resetDecoders();
+			receiverTask = new ReceiverTask(
+					reader, repaintController,
+					clipboardController,
+					decoders, this);
+			receiverThread = new Thread(receiverTask, "RfbReceiverTask");
+			receiverThread.start();
+		} catch (IOException e) {
+			e.printStackTrace();
+		} catch (UnsupportedProtocolVersionException e) {
+			e.printStackTrace();
+		} catch (UnsupportedSecurityTypeException e) {
+			e.printStackTrace();
+		} catch (AuthenticationFailedException e) {
+			e.printStackTrace();
+		} catch (TransportException e) {
+			e.printStackTrace();
+		} catch (FatalException e) {
+			e.printStackTrace();
+		}
+	}
 
 }

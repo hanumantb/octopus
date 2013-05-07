@@ -71,4 +71,6 @@ public interface ProtocolContext {
     void setProtocolVersion(String protocolVersion);
     String getProtocolVersion();
 
+	void restartSession();
+
 }

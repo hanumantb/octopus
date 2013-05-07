@@ -106,8 +106,9 @@ public class ReceiverTask implements Runnable {
 				}
 			} catch (TransportException e) {
 				if (isRunning) {
-                    logger.severe("Close session: " + e.getMessage());
-					context.cleanUpSession("Connection closed.");
+					logger.severe("Close session: " + e.getMessage());
+//					context.cleanUpSession("Connection closed.");
+					context.restartSession();
 				}
 				stopTask();
 			} catch (ProtocolException e) {
