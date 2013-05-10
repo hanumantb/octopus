@@ -383,9 +383,9 @@ void recursiveSend(cl, y_low, y_high) {
         measured_size, MTU_SIZE, y_low, y_high, region_count);
 
     int i;
-    int ywidth = (y_high - y_low) / region_count;
+    int y_width = (y_high - y_low) / region_count;
     for (i = 0; i < region_count; i++) {
-        recursiveSend(cl, y_low + (i) * ywidth, y_low + (i + 1) * ywidth + 1);
+        recursiveSend(cl, y_low + (i) * y_width, y_low + (i + 1) * y_width + 1);
     }
 }
 
@@ -395,12 +395,13 @@ rfbServerPushClient(cl)
 {
     if (FB_UPDATE_PENDING(cl)) {
 
-        static time_t last_update;
+        static unsigned long last_update;
+        unsigned long now;
 
-        time_t now;
-        now = time(NULL);
+        now = GetTimeInMillis();
 
-        if (now > last_update) {
+        const unsigned long push_interval = 1000;
+        if (now - last_update > push_interval) {
             if (!canSend) {
                 return;
             }
@@ -424,20 +425,6 @@ rfbServerPushClient(cl)
             }
             */
 
-            /**
-             * TODO
-             * 1) Send over UDP
-             * 2) Receive over UDP
-             * 3) Record sent <id, region, send_time> per sent UDP packet
-             * 4) Loop over and re-send old ones WITH NEW REGION PIXELS, updating send_time
-             * 5) Fix encoding to tight?
-             * 6) Handle out of order on client?
-             *
-             * We want to handle
-             * 1) loss
-             * 2) bandwidth
-             * 3) RTT
-             */
             /* Get bounding heights. */
             int y_low = cl->modifiedRegion.extents.y1;
             int y_high = cl->modifiedRegion.extents.y2;
@@ -1629,7 +1616,7 @@ rfbSendUpdateBuf(cl)
             return FALSE;
         }
         if (sent_size != ublen) {
-            rfbLog("rfbSendUpdateBuf only sent %d bytes, supposed to send %d\n", sent_size, ublen);
+            rfbLog("rfbSendUpdateBuf sent %d bytes, supposed to send %d\n", sent_size, ublen);
             rfbCloseSock(cl->sock);
             return FALSE;
         }
