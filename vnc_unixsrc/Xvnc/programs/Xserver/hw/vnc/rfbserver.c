@@ -63,6 +63,11 @@ static void rfbProcessClientNormalMessage(rfbClientPtr cl);
 static Bool rfbSendCopyRegion(rfbClientPtr cl, RegionPtr reg, int dx, int dy);
 static Bool rfbSendLastRectMarker(rfbClientPtr cl);
 
+#define MTU_SIZE (15000)
+#define SCREEN_XMIN (0)
+#define SCREEN_XMAX (1024)
+#define SCREEN_YMIN (0)
+#define SCREEN_YMAX (768)
 
 /*
  * rfbNewClientConnection is called from sockets.c when a new connection
@@ -138,6 +143,8 @@ rfbNewClient(sock)
     }
 
     cl = (rfbClientPtr)xalloc(sizeof(rfbClientRec));
+
+    cl->measuring = FALSE;
 
     cl->sock = sock;
     getpeername(sock, (struct sockaddr *)&addr, &addrlen);
@@ -273,6 +280,86 @@ rfbClientConnectionGone(sock)
 
 static Bool canSend = FALSE;
 
+int
+measureRegion(cl, y_low, y_high)
+    rfbClientPtr cl;
+    int y_low;
+    int y_high;
+{
+    RegionRec tmpRegion;
+    BoxRec box;
+    int measured_size;
+
+    box.x1 = SCREEN_XMIN;
+    box.y1 = y_low;
+    box.x2 = SCREEN_XMAX;
+    box.y2 = y_high;
+    SAFE_REGION_INIT(pScreen,&tmpRegion,&box,0);
+
+    REGION_UNION(pScreen, &cl->requestedRegion, &cl->requestedRegion,
+                 &tmpRegion);
+
+    if (!cl->readyForSetColourMapEntries) {
+        /* client hasn't sent a SetPixelFormat so is using server's */
+        cl->readyForSetColourMapEntries = TRUE;
+        if (!cl->format.trueColour) {
+            if (!rfbSetClientColourMap(cl, 0, 0)) {
+                REGION_UNINIT(pScreen,&tmpRegion);
+                return;
+            }
+        }
+    }
+
+    rfbLog("GOING TO SEND TO CLIENT\n");
+    /* rfbLog("  client has %d regions\n", cl->modifiedRegion.data->size); */
+    rfbLog("MEASURING:\n");
+    cl->measuring = TRUE;
+    rfbSendFramebufferUpdate(cl);
+    cl->measuring = FALSE;
+    measured_size = ublen;
+    ublen = 0;
+
+    REGION_EMPTY(pScreen, &cl->requestedRegion);
+    REGION_UNINIT(pScreen,&tmpRegion);
+
+    return measured_size;
+}
+
+void
+sendRegion(cl, y_low, y_high)
+    rfbClientPtr cl;
+    int y_low;
+    int y_high;
+{
+    RegionRec tmpRegion;
+    BoxRec box;
+
+    box.x1 = SCREEN_XMIN;
+    box.y1 = y_low;
+    box.x2 = SCREEN_XMAX;
+    box.y2 = y_high;
+    SAFE_REGION_INIT(pScreen,&tmpRegion,&box,0);
+
+    REGION_UNION(pScreen, &cl->requestedRegion, &cl->requestedRegion,
+                 &tmpRegion);
+
+    if (!cl->readyForSetColourMapEntries) {
+        /* client hasn't sent a SetPixelFormat so is using server's */
+        cl->readyForSetColourMapEntries = TRUE;
+        if (!cl->format.trueColour) {
+            if (!rfbSetClientColourMap(cl, 0, 0)) {
+                REGION_UNINIT(pScreen,&tmpRegion);
+                return;
+            }
+        }
+    }
+
+    rfbLog("Sending to client region %d -> %d\n", y_low, y_high);
+    rfbSendFramebufferUpdate(cl);
+
+    REGION_UNINIT(pScreen,&tmpRegion);
+}
+
 void
 rfbServerPushClient(sock, cl)
     int sock;
@@ -289,17 +376,17 @@ rfbServerPushClient(sock, cl)
             if (!canSend) {
                 return;
             }
+            rfbLog("vvvv\n");
             rfbLog("rfbServerPush to client %s\n", cl->host);
-            cl->bytesMeasured = 0;
 
             /* Create the sock_addr */
+            /*
             struct sockaddr_in client_addr;
             memset(&client_addr, 0, sizeof(client_addr));
             client_addr.sin_family = AF_INET;
             client_addr.sin_addr.s_addr = inet_addr(cl->host);
             client_addr.sin_port = htons(4999);
 
-            /*
             char *message = "hello";
             int message_len = strlen(message);
             rfbLog("Supposedly sent message %s\n", message);
@@ -318,39 +405,23 @@ rfbServerPushClient(sock, cl)
              * 5) Send it, record sent region in linked list
              * 6) Re-send sent regions if not ACKed in RTT
              */
+            int measured_size = measureRegion(cl, SCREEN_YMIN, SCREEN_YMAX);
+            int mtu_count = (measured_size / MTU_SIZE) + 1;
+            rfbLog("mtu_count = %d\n", mtu_count);
 
-            RegionRec tmpRegion;
-            BoxRec box;
+            /* Get bounding heights. */
+            int y_low = cl->modifiedRegion.extents.y1;
+            int y_high = cl->modifiedRegion.extents.y2;
+            rfbLog("Bounding y min/max is %d, %d\n", y_low, y_high);
 
-            box.x1 = 0;
-            box.y1 = 0;
-            box.x2 = 1024;
-            box.y2 = 768;
-            SAFE_REGION_INIT(pScreen,&tmpRegion,&box,0);
-
-            REGION_UNION(pScreen, &cl->requestedRegion, &cl->requestedRegion,
-                         &tmpRegion);
-
-            if (!cl->readyForSetColourMapEntries) {
-                /* client hasn't sent a SetPixelFormat so is using server's */
-                cl->readyForSetColourMapEntries = TRUE;
-                if (!cl->format.trueColour) {
-                    if (!rfbSetClientColourMap(cl, 0, 0)) {
-                        REGION_UNINIT(pScreen,&tmpRegion);
-                        return;
-                    }
-                }
+            int i;
+            int ywidth = (y_high - y_low) / mtu_count;
+            for (i = 0; i < mtu_count; i++) {
+                sendRegion(cl, y_low + (i) * ywidth, y_low + (i + 1) * ywidth);
             }
-
-            if (FB_UPDATE_PENDING(cl)) {
-                rfbLog("GOING TO SEND TO CLIENT\n");
-                rfbSendFramebufferUpdate(cl);
-            }
-
-            REGION_UNINIT(pScreen,&tmpRegion);
 
             last_update = now;
-            rfbLog("SENT UPDATE, MEASURED %d BYTES\n", cl->bytesMeasured);
+            rfbLog("^^^^\n");
         }
     }
 }
@@ -883,10 +954,10 @@ rfbProcessClientNormalMessage(cl)
 	}
 
         static int send_count = 0;
-        if (send_count++ > 50) {
+        if (send_count++ > 10) {
             return;
         }
-        rfbLog("Sending from here, count=%d\n", send_count);
+        rfbLog("vv Sending from here, count=%d\n", send_count);
 
 	box.x1 = Swap16IfLE(msg.fur.x);
 	box.y1 = Swap16IfLE(msg.fur.y);
@@ -920,6 +991,7 @@ rfbProcessClientNormalMessage(cl)
 	}
 
 	REGION_UNINIT(pScreen,&tmpRegion);
+        rfbLog("^^ Done sending from here\n");
 	return;
     }
 
@@ -1089,6 +1161,7 @@ rfbSendFramebufferUpdate(cl)
     if ( !REGION_NOTEMPTY(pScreen,&updateRegion) &&
 	 !sendCursorShape && !sendCursorPos ) {
 	REGION_UNINIT(pScreen,&updateRegion);
+        rfbLog("Region is empty, so I'm not sending\n");
 	return TRUE;
     }
 
@@ -1125,17 +1198,20 @@ rfbSendFramebufferUpdate(cl)
      * carry over a copyRegion for a future update.
      */
 
-    REGION_UNION(pScreen, &cl->modifiedRegion, &cl->modifiedRegion,
-		 &cl->copyRegion);
-    REGION_SUBTRACT(pScreen, &cl->modifiedRegion, &cl->modifiedRegion,
-		    &updateRegion);
-    REGION_SUBTRACT(pScreen, &cl->modifiedRegion, &cl->modifiedRegion,
-		    &updateCopyRegion);
+    if (!cl->measuring) {
+        REGION_UNION(pScreen, &cl->modifiedRegion, &cl->modifiedRegion,
+                     &cl->copyRegion);
 
-    REGION_EMPTY(pScreen, &cl->requestedRegion);
-    REGION_EMPTY(pScreen, &cl->copyRegion);
-    cl->copyDX = 0;
-    cl->copyDY = 0;
+        REGION_SUBTRACT(pScreen, &cl->modifiedRegion, &cl->modifiedRegion,
+                        &updateRegion);
+        REGION_SUBTRACT(pScreen, &cl->modifiedRegion, &cl->modifiedRegion,
+                        &updateCopyRegion);
+
+        REGION_EMPTY(pScreen, &cl->requestedRegion);
+        REGION_EMPTY(pScreen, &cl->copyRegion);
+        cl->copyDX = 0;
+        cl->copyDY = 0;
+    }
 
     /*
      * Now send the update.
@@ -1488,10 +1564,17 @@ rfbSendUpdateBuf(cl)
     int i;
     for (i = 0; i < ublen; i++) {
 	fprintf(stderr,"%02x ",((unsigned char *)updateBuf)[i]);
+        if (i % 10 == 0) {
+            fprintf(stderr,"\n");
+        }
     }
     fprintf(stderr,"\n");
     */
-    cl->bytesMeasured += ublen;
+    if (cl->measuring) {
+        rfbLog("Measured %d bytes, not sending.\n", ublen);
+        return TRUE;
+    }
+
     rfbLog("rfbSendUpdateBuf is sending %d bytes\n", ublen);
 
     if (ublen > 0 && WriteExact(cl->sock, updateBuf, ublen) < 0) {
