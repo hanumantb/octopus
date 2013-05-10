@@ -460,7 +460,7 @@ extern void KbdReleaseAllKeys();
  * means 8K minimum.
  */
 
-#define UPDATE_BUF_SIZE 30000
+#define UPDATE_BUF_SIZE 100000 /* ORIGINAL 30000 */
 extern char updateBuf[UPDATE_BUF_SIZE];
 extern int ublen;
 

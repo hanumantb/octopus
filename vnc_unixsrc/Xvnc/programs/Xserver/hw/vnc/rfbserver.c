@@ -1492,6 +1492,7 @@ rfbSendUpdateBuf(cl)
     fprintf(stderr,"\n");
     */
     cl->bytesMeasured += ublen;
+    rfbLog("rfbSendUpdateBuf is sending %d bytes\n", ublen);
 
     if (ublen > 0 && WriteExact(cl->sock, updateBuf, ublen) < 0) {
 	rfbLogPerror("rfbSendUpdateBuf: write");
