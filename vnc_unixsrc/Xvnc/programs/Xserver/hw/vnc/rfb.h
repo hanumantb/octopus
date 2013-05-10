@@ -131,9 +131,8 @@ typedef void (*rfbTranslateFnType)(char *table, rfbPixelFormat *in,
 typedef struct rfbClientRec {
 
     /* CUSTOM FIELDS */
-    int udpSock;
     Bool measuring;
-    int measuredBytes;
+    int bytesMeasured;
 
     /* END CUSTOM FIELDS */
 

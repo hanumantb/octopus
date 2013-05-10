@@ -271,57 +271,87 @@ rfbClientConnectionGone(sock)
     xfree(cl);
 }
 
+static Bool canSend = FALSE;
+
 void
 rfbServerPushClient(sock, cl)
     int sock;
     rfbClientPtr cl;
 {
+    if (FB_UPDATE_PENDING(cl)) {
 
-    static time_t last_update;
+        static time_t last_update;
 
-    time_t now;
-    now = time(NULL);
+        time_t now;
+        now = time(NULL);
 
-    if (now > last_update) {
-        rfbLog("rfbServerPush to client %s\n", cl->host);
+        if (now > last_update) {
+            if (!canSend) {
+                return;
+            }
+            rfbLog("rfbServerPush to client %s\n", cl->host);
+            cl->bytesMeasured = 0;
 
-        /* Create the sock_addr */
-        struct sockaddr_in client_addr;
-        memset(&client_addr, 0, sizeof(client_addr));
-        client_addr.sin_family = AF_INET;
-        client_addr.sin_addr.s_addr = inet_addr(cl->host);
-        client_addr.sin_port = htons(4999);
+            /* Create the sock_addr */
+            struct sockaddr_in client_addr;
+            memset(&client_addr, 0, sizeof(client_addr));
+            client_addr.sin_family = AF_INET;
+            client_addr.sin_addr.s_addr = inet_addr(cl->host);
+            client_addr.sin_port = htons(4999);
 
-        /*
-        char *message = "hello";
-        int message_len = strlen(message);
-        rfbLog("Supposedly sent message %s\n", message);
-        if (sendto(sock, message, message_len, 0,
-            (struct sockaddr *)&client_addr, sizeof client_addr) == -1) {
-            rfbLog("Error sending UDP message to %s\n", cl->host);
+            /*
+            char *message = "hello";
+            int message_len = strlen(message);
+            rfbLog("Supposedly sent message %s\n", message);
+            if (sendto(sock, message, message_len, 0,
+                (struct sockaddr *)&client_addr, sizeof client_addr) == -1) {
+                rfbLog("Error sending UDP message to %s\n", cl->host);
+            }
+            */
+
+            /**
+             * TODO
+             * 1) Determine if cl has updates to send
+             * 2) If so, try to send each region separately
+             * 3) For each region, see how large message would be
+             * 4) If too large, split region and repeat until can fit into MTU
+             * 5) Send it, record sent region in linked list
+             * 6) Re-send sent regions if not ACKed in RTT
+             */
+
+            RegionRec tmpRegion;
+            BoxRec box;
+
+            box.x1 = 0;
+            box.y1 = 0;
+            box.x2 = 1024;
+            box.y2 = 768;
+            SAFE_REGION_INIT(pScreen,&tmpRegion,&box,0);
+
+            REGION_UNION(pScreen, &cl->requestedRegion, &cl->requestedRegion,
+                         &tmpRegion);
+
+            if (!cl->readyForSetColourMapEntries) {
+                /* client hasn't sent a SetPixelFormat so is using server's */
+                cl->readyForSetColourMapEntries = TRUE;
+                if (!cl->format.trueColour) {
+                    if (!rfbSetClientColourMap(cl, 0, 0)) {
+                        REGION_UNINIT(pScreen,&tmpRegion);
+                        return;
+                    }
+                }
+            }
+
+            if (FB_UPDATE_PENDING(cl)) {
+                rfbLog("GOING TO SEND TO CLIENT\n");
+                rfbSendFramebufferUpdate(cl);
+            }
+
+            REGION_UNINIT(pScreen,&tmpRegion);
+
+            last_update = now;
+            rfbLog("SENT UPDATE, MEASURED %d BYTES\n", cl->bytesMeasured);
         }
-        */
-
-        /**
-         * TODO
-         * 1) Determine if cl has updates to send
-         * 2) If so, try to send each region separately
-         * 3) For each region, see how large message would be
-         * 4) If too large, split region and repeat until can fit into MTU
-         * 5) Send it, record sent region in linked list
-         * 6) Re-send sent regions if not ACKed in RTT
-         */
-
-        /* Set cl->measuring while we figure out how large this update will be. */
-        if (FB_UPDATE_PENDING(cl)) {
-            cl->measuring = TRUE;
-            cl->measuredBytes = 0;
-            rfbSendFramebufferUpdate(cl);
-            rfbLog("SENT UPDATE, MEASURED %d BYTES\n", cl->measuredBytes);
-            cl->measuring = FALSE;
-        }
-
-        last_update = now;
     }
 }
 
@@ -836,6 +866,7 @@ rfbProcessClientNormalMessage(cl)
 
     case rfbFramebufferUpdateRequest:
     {
+        canSend = TRUE;
 	RegionRec tmpRegion;
 	BoxRec box;
 
@@ -850,6 +881,12 @@ rfbProcessClientNormalMessage(cl)
 	    rfbCloseSock(cl->sock);
 	    return;
 	}
+
+        static int send_count = 0;
+        if (send_count++ > 50) {
+            return;
+        }
+        rfbLog("Sending from here, count=%d\n", send_count);
 
 	box.x1 = Swap16IfLE(msg.fur.x);
 	box.y1 = Swap16IfLE(msg.fur.y);
@@ -1095,12 +1132,8 @@ rfbSendFramebufferUpdate(cl)
     REGION_SUBTRACT(pScreen, &cl->modifiedRegion, &cl->modifiedRegion,
 		    &updateCopyRegion);
 
-    if (!cl->measuring) {
-        REGION_EMPTY(pScreen, &cl->requestedRegion);
-        REGION_EMPTY(pScreen, &cl->copyRegion);
-    } else {
-        rfbLog("Was going to empty region, but didn't! because I'm measuring.\n");
-    }
+    REGION_EMPTY(pScreen, &cl->requestedRegion);
+    REGION_EMPTY(pScreen, &cl->copyRegion);
     cl->copyDX = 0;
     cl->copyDY = 0;
 
@@ -1108,9 +1141,7 @@ rfbSendFramebufferUpdate(cl)
      * Now send the update.
      */
 
-    if (!cl->measuring) {
-        cl->rfbFramebufferUpdateMessagesSent++;
-    }
+    cl->rfbFramebufferUpdateMessagesSent++;
 
     if (cl->preferredEncoding == rfbEncodingCoRRE) {
 	nUpdateRegionRects = 0;
@@ -1237,10 +1268,6 @@ rfbSendFramebufferUpdate(cl)
 
     if (nUpdateRegionRects == 0xFFFF && !rfbSendLastRectMarker(cl))
 	return FALSE;
-
-    if (cl->measuring) {
-        return TRUE;
-    }
 
     if (!rfbSendUpdateBuf(cl))
 	return FALSE;
@@ -1464,6 +1491,7 @@ rfbSendUpdateBuf(cl)
     }
     fprintf(stderr,"\n");
     */
+    cl->bytesMeasured += ublen;
 
     if (ublen > 0 && WriteExact(cl->sock, updateBuf, ublen) < 0) {
 	rfbLogPerror("rfbSendUpdateBuf: write");
