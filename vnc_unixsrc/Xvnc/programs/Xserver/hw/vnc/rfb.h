@@ -132,6 +132,8 @@ typedef struct rfbClientRec {
 
     /* CUSTOM FIELDS */
     Bool measuring;
+    int udpSock;
+    Bool useUdp;
     /* END CUSTOM FIELDS */
 
     int sock;
@@ -470,7 +472,7 @@ extern Bool rfbNeverShared;
 extern Bool rfbDontDisconnect;
 extern Bool rfbViewOnly; /* run server in view-only mode - Ehud Karni SW */
 
-extern void rfbNewClientConnection(int sock);
+extern void rfbNewClientConnection(int sock, int udpSock);
 extern rfbClientPtr rfbReverseConnection(char *host, int port);
 extern void rfbClientConnectionGone(int sock);
 extern void rfbProcessClientMessage(int sock);
@@ -484,7 +486,7 @@ extern Bool rfbSendSetColourMapEntries(rfbClientPtr cl, int firstColour,
 extern void rfbSendBell();
 extern void rfbSendServerCutText(char *str, int len);
 /* NEW */
-extern void rfbServerPush(int sock);
+extern void rfbServerPush();
 
 
 /* translate.c */

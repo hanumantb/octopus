@@ -173,12 +173,12 @@ rfbCheckFds()
     static Bool inetdInitDone = FALSE;
 
     if (!inetdInitDone && inetdSock != -1) {
-	rfbNewClientConnection(inetdSock); 
+	rfbNewClientConnection(inetdSock, udpSock); 
 	inetdInitDone = TRUE;
     }
 
     /* SERVER PUSH. */
-    rfbServerPush(udpPushSock);
+    rfbServerPush();
 
     memcpy((char *)&fds, (char *)&allFds, sizeof(fd_set));
     tv.tv_sec = 0;
@@ -231,7 +231,7 @@ rfbCheckFds()
 	FD_SET(sock, &allFds);
 	maxFd = max(sock,maxFd);
 
-	rfbNewClientConnection(sock);
+	rfbNewClientConnection(sock, udpPushSock);
 
 	FD_CLR(rfbListenSock, &fds);
 	if (--nfds == 0)

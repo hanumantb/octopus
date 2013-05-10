@@ -55,7 +55,7 @@ Bool rfbNeverShared = FALSE;
 Bool rfbDontDisconnect = FALSE;
 Bool rfbViewOnly = FALSE; /* run server in view only mode - Ehud Karni SW */
 
-static rfbClientPtr rfbNewClient(int sock);
+static rfbClientPtr rfbNewClient(int sock, int udpSock);
 static void rfbProcessClientProtocolVersion(rfbClientPtr cl);
 static void rfbProcessClientInitMessage(rfbClientPtr cl);
 static void rfbSendInteractionCaps(rfbClientPtr cl);
@@ -75,12 +75,13 @@ static Bool rfbSendLastRectMarker(rfbClientPtr cl);
  */
 
 void
-rfbNewClientConnection(sock)
+rfbNewClientConnection(sock, udpSock)
     int sock;
+    int udpSock;
 {
     rfbClientPtr cl;
 
-    cl = rfbNewClient(sock);
+    cl = rfbNewClient(sock, udpSock);
 
 #ifdef CORBA
     if (cl != NULL)
@@ -105,7 +106,7 @@ rfbReverseConnection(host, port)
     if ((sock = rfbConnect(host, port)) < 0)
 	return (rfbClientPtr)NULL;
 
-    cl = rfbNewClient(sock);
+    cl = rfbNewClient(sock, -1);
 
     if (cl) {
 	cl->reverseConnection = TRUE;
@@ -121,8 +122,9 @@ rfbReverseConnection(host, port)
  */
 
 static rfbClientPtr
-rfbNewClient(sock)
+rfbNewClient(sock, udpSock)
     int sock;
+    int udpSock;
 {
     rfbProtocolVersionMsg pv;
     rfbClientPtr cl;
@@ -145,6 +147,8 @@ rfbNewClient(sock)
     cl = (rfbClientPtr)xalloc(sizeof(rfbClientRec));
 
     cl->measuring = FALSE;
+    cl->udpSock = udpSock;
+    cl->useUdp = FALSE;
 
     cl->sock = sock;
     getpeername(sock, (struct sockaddr *)&addr, &addrlen);
@@ -357,7 +361,9 @@ sendRegion(cl, y_low, y_high)
     }
 
     rfbLog("Sending to client region %d -> %d, sent_count=%d\n", y_low, y_high, sent_count);
+    cl->useUdp = TRUE;
     rfbSendFramebufferUpdate(cl);
+    cl->useUdp = FALSE;
 
     REGION_UNINIT(pScreen,&tmpRegion);
 }
@@ -384,8 +390,7 @@ void recursiveSend(cl, y_low, y_high) {
 }
 
 void
-rfbServerPushClient(sock, cl)
-    int sock;
+rfbServerPushClient(cl)
     rfbClientPtr cl;
 {
     if (FB_UPDATE_PENDING(cl)) {
@@ -449,13 +454,12 @@ rfbServerPushClient(sock, cl)
  * rfbServerPush is called to push data to all clients.
  */
 void
-rfbServerPush(sock)
-    int sock;
+rfbServerPush()
 {
     /* Go through all clients. */
     rfbClientPtr cl;
     for (cl = rfbClientHead; cl; cl = cl->next) {
-        rfbServerPushClient(sock, cl);
+        rfbServerPushClient(cl);
     }
 }
 
@@ -1236,7 +1240,9 @@ rfbSendFramebufferUpdate(cl)
      * Now send the update.
      */
 
-    cl->rfbFramebufferUpdateMessagesSent++;
+    if (!cl->measuring) {
+        cl->rfbFramebufferUpdateMessagesSent++;
+    }
 
     if (cl->preferredEncoding == rfbEncodingCoRRE) {
 	nUpdateRegionRects = 0;
@@ -1289,15 +1295,19 @@ rfbSendFramebufferUpdate(cl)
     ublen = sz_rfbFramebufferUpdateMsg;
 
     if (sendCursorShape) {
+        rfbLog("Sending cursor shape \n");
 	cl->cursorWasChanged = FALSE;
 	if (!rfbSendCursorShape(cl, pScreen))
 	    return FALSE;
+        rfbLog("Done sending cursor shape \n");
     }
 
     if (sendCursorPos) {
+        rfbLog("Sending cursor pos \n");
 	cl->cursorWasMoved = FALSE;
 	if (!rfbSendCursorPos(cl, pScreen))
  	    return FALSE;
+        rfbLog("Done sending cursor pos \n");
     }
 
     if (REGION_NOTEMPTY(pScreen,&updateCopyRegion)) {
@@ -1364,6 +1374,7 @@ rfbSendFramebufferUpdate(cl)
     if (nUpdateRegionRects == 0xFFFF && !rfbSendLastRectMarker(cl))
 	return FALSE;
 
+    rfbLog("Sending at end of rfbSendFramebufferUpdate\n");
     if (!rfbSendUpdateBuf(cl))
 	return FALSE;
 
@@ -1579,18 +1590,52 @@ Bool
 rfbSendUpdateBuf(cl)
     rfbClientPtr cl;
 {
+    if (cl->measuring) {
+        rfbLog("Measured %d bytes (not in sending mode)\n", ublen);
+        return TRUE;
+    }
+
     /*
     int i;
     for (i = 0; i < ublen; i++) {
-	fprintf(stderr,"%02x ",((unsigned char *)updateBuf)[i]);
         if (i % 10 == 0) {
             fprintf(stderr,"\n");
         }
+	fprintf(stderr,"%02x ",((unsigned char *)updateBuf)[i]);
     }
     fprintf(stderr,"\n");
     */
-    if (cl->measuring) {
-        rfbLog("Measured %d bytes, not sending.\n", ublen);
+
+    if (cl->useUdp) {
+        if (ublen > MTU_SIZE) {
+            rfbLog("Tried to send %d bytes over UDP, but too large! Killing the client. MTU=%d\n", ublen, MTU_SIZE);
+            rfbCloseSock(cl->sock);
+            return FALSE;
+        }
+
+        /* Create the sock_addr */
+        struct sockaddr_in client_addr;
+        memset(&client_addr, 0, sizeof(client_addr));
+        client_addr.sin_family = AF_INET;
+        client_addr.sin_addr.s_addr = inet_addr(cl->host);
+        client_addr.sin_port = htons(6829);
+
+        int sent_size = sendto(cl->udpSock, updateBuf, ublen, 0,
+            (struct sockaddr *)&client_addr, sizeof client_addr);
+
+        if (sent_size == -1) {
+            rfbLog("Error sending UDP message to %s\n", cl->host);
+            rfbCloseSock(cl->sock);
+            return FALSE;
+        }
+        if (sent_size != ublen) {
+            rfbLog("rfbSendUpdateBuf only sent %d bytes, supposed to send %d\n", sent_size, ublen);
+            rfbCloseSock(cl->sock);
+            return FALSE;
+        }
+
+        rfbLog("Sent %d bytes over UDP, ublen=%d\n", sent_size, ublen);
+        ublen = 0;
         return TRUE;
     }
 
