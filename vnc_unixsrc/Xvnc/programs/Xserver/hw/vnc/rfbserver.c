@@ -29,6 +29,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <pwd.h>
+#include <time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -275,18 +276,53 @@ rfbServerPushClient(sock, cl)
     int sock;
     rfbClientPtr cl;
 {
-    rfbLog("rfbServerPush to client %s\n", cl->host);
-    /* Create the sock_addr */
-    struct sockaddr_in client_addr;
-    memset(&client_addr, 0, sizeof(client_addr));
-    client_addr.sin_family = AF_INET;
-    client_addr.sin_addr.s_addr = inet_addr(cl->host);
-    client_addr.sin_port = htons(4999);
 
-    char *message = "hello";
-    int message_len = strlen(message);
-    sendto(sock, message, message_len, 0, (struct sockaddr *)&client_addr, sizeof client_addr);
-    rfbLog("Supposedly sent message %s\n", message);
+    static time_t last_update;
+
+    time_t now;
+    now = time(NULL);
+
+    if (now > last_update) {
+        rfbLog("rfbServerPush to client %s\n", cl->host);
+
+        /* Create the sock_addr */
+        struct sockaddr_in client_addr;
+        memset(&client_addr, 0, sizeof(client_addr));
+        client_addr.sin_family = AF_INET;
+        client_addr.sin_addr.s_addr = inet_addr(cl->host);
+        client_addr.sin_port = htons(4999);
+
+        /*
+        char *message = "hello";
+        int message_len = strlen(message);
+        rfbLog("Supposedly sent message %s\n", message);
+        if (sendto(sock, message, message_len, 0,
+            (struct sockaddr *)&client_addr, sizeof client_addr) == -1) {
+            rfbLog("Error sending UDP message to %s\n", cl->host);
+        }
+        */
+
+        /**
+         * TODO
+         * 1) Determine if cl has updates to send
+         * 2) If so, try to send each region separately
+         * 3) For each region, see how large message would be
+         * 4) If too large, split region and repeat until can fit into MTU
+         * 5) Send it, record sent region in linked list
+         * 6) Re-send sent regions if not ACKed in RTT
+         */
+
+        /* Set cl->measuring while we figure out how large this update will be. */
+        if (FB_UPDATE_PENDING(cl)) {
+            cl->measuring = TRUE;
+            cl->measuredBytes = 0;
+            rfbSendFramebufferUpdate(cl);
+            rfbLog("SENT UPDATE, MEASURED %d BYTES\n", cl->measuredBytes);
+            cl->measuring = FALSE;
+        }
+
+        last_update = now;
+    }
 }
 
 /*
@@ -1059,8 +1095,12 @@ rfbSendFramebufferUpdate(cl)
     REGION_SUBTRACT(pScreen, &cl->modifiedRegion, &cl->modifiedRegion,
 		    &updateCopyRegion);
 
-    REGION_EMPTY(pScreen, &cl->requestedRegion);
-    REGION_EMPTY(pScreen, &cl->copyRegion);
+    if (!cl->measuring) {
+        REGION_EMPTY(pScreen, &cl->requestedRegion);
+        REGION_EMPTY(pScreen, &cl->copyRegion);
+    } else {
+        rfbLog("Was going to empty region, but didn't! because I'm measuring.\n");
+    }
     cl->copyDX = 0;
     cl->copyDY = 0;
 
@@ -1068,7 +1108,9 @@ rfbSendFramebufferUpdate(cl)
      * Now send the update.
      */
 
-    cl->rfbFramebufferUpdateMessagesSent++;
+    if (!cl->measuring) {
+        cl->rfbFramebufferUpdateMessagesSent++;
+    }
 
     if (cl->preferredEncoding == rfbEncodingCoRRE) {
 	nUpdateRegionRects = 0;
@@ -1195,6 +1237,10 @@ rfbSendFramebufferUpdate(cl)
 
     if (nUpdateRegionRects == 0xFFFF && !rfbSendLastRectMarker(cl))
 	return FALSE;
+
+    if (cl->measuring) {
+        return TRUE;
+    }
 
     if (!rfbSendUpdateBuf(cl))
 	return FALSE;

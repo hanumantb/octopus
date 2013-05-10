@@ -544,8 +544,13 @@ SendSubrect(cl, x, y, w, h)
 
     /* Send pending data if there is more than 128 bytes. */
     if (ublen > 128) {
-        if (!rfbSendUpdateBuf(cl))
-            return FALSE;
+        if (cl->measuring) {
+            cl->measuredBytes += ublen;
+            ublen = 0;
+        } else {
+            if (!rfbSendUpdateBuf(cl))
+                return FALSE;
+        }
     }
 
     if (!SendTightHeader(cl, x, y, w, h))
@@ -618,8 +623,13 @@ SendTightHeader(cl, x, y, w, h)
     rfbFramebufferUpdateRectHeader rect;
 
     if (ublen + sz_rfbFramebufferUpdateRectHeader > UPDATE_BUF_SIZE) {
-        if (!rfbSendUpdateBuf(cl))
-            return FALSE;
+        if (cl->measuring) {
+            cl->measuredBytes += ublen;
+            ublen = 0;
+        } else {
+            if (!rfbSendUpdateBuf(cl))
+                return FALSE;
+        }
     }
 
     rect.r.x = Swap16IfLE(x);
@@ -655,8 +665,13 @@ SendSolidRect(cl)
         len = cl->format.bitsPerPixel / 8;
 
     if (ublen + 1 + len > UPDATE_BUF_SIZE) {
-        if (!rfbSendUpdateBuf(cl))
-            return FALSE;
+        if (cl->measuring) {
+            cl->measuredBytes += ublen;
+            ublen = 0;
+        } else {
+            if (!rfbSendUpdateBuf(cl))
+                return FALSE;
+        }
     }
 
     updateBuf[ublen++] = (char)(rfbTightFill << 4);
@@ -680,6 +695,13 @@ SendMonoRect(cl, w, h)
           2 * cl->format.bitsPerPixel / 8) > UPDATE_BUF_SIZE ) {
         if (!rfbSendUpdateBuf(cl))
             return FALSE;
+        if (cl->measuring) {
+            cl->measuredBytes += ublen;
+            ublen = 0;
+        } else {
+            if (!rfbSendUpdateBuf(cl))
+                return FALSE;
+        }
     }
 
     /* Prepare tight encoding header. */
@@ -743,8 +765,13 @@ SendIndexedRect(cl, w, h)
 
     if ( (ublen + TIGHT_MIN_TO_COMPRESS + 6 +
           paletteNumColors * cl->format.bitsPerPixel / 8) > UPDATE_BUF_SIZE ) {
-        if (!rfbSendUpdateBuf(cl))
-            return FALSE;
+        if (cl->measuring) {
+            cl->measuredBytes += ublen;
+            ublen = 0;
+        } else {
+            if (!rfbSendUpdateBuf(cl))
+                return FALSE;
+        }
     }
 
     /* Prepare tight encoding header. */
@@ -804,8 +831,13 @@ SendFullColorRect(cl, w, h)
     int len;
 
     if (ublen + TIGHT_MIN_TO_COMPRESS + 1 > UPDATE_BUF_SIZE) {
-        if (!rfbSendUpdateBuf(cl))
-            return FALSE;
+        if (cl->measuring) {
+            cl->measuredBytes += ublen;
+            ublen = 0;
+        } else {
+            if (!rfbSendUpdateBuf(cl))
+                return FALSE;
+        }
     }
 
     updateBuf[ublen++] = 0x00;  /* stream id = 0, no flushing, no filter */
@@ -834,8 +866,13 @@ SendGradientRect(cl, w, h)
         return SendFullColorRect(cl, w, h);
 
     if (ublen + TIGHT_MIN_TO_COMPRESS + 2 > UPDATE_BUF_SIZE) {
-        if (!rfbSendUpdateBuf(cl))
-            return FALSE;
+        if (cl->measuring) {
+            cl->measuredBytes += ublen;
+            ublen = 0;
+        } else {
+            if (!rfbSendUpdateBuf(cl))
+                return FALSE;
+        }
     }
 
     if (prevRowBuf == NULL)
@@ -941,8 +978,13 @@ static Bool SendCompressedData(cl, compressedLen)
             portionLen = compressedLen - i;
         }
         if (ublen + portionLen > UPDATE_BUF_SIZE) {
-            if (!rfbSendUpdateBuf(cl))
-                return FALSE;
+            if (cl->measuring) {
+                cl->measuredBytes += ublen;
+                ublen = 0;
+            } else {
+                if (!rfbSendUpdateBuf(cl))
+                    return FALSE;
+            }
         }
         memcpy(&updateBuf[ublen], &tightAfterBuf[i], portionLen);
         ublen += portionLen;
@@ -1671,8 +1713,13 @@ SendJpegRect(cl, x, y, w, h, quality)
         return SendFullColorRect(cl, w, h);
 
     if (ublen + TIGHT_MIN_TO_COMPRESS + 1 > UPDATE_BUF_SIZE) {
-        if (!rfbSendUpdateBuf(cl))
-            return FALSE;
+        if (cl->measuring) {
+            cl->measuredBytes += ublen;
+            ublen = 0;
+        } else {
+            if (!rfbSendUpdateBuf(cl))
+                return FALSE;
+        }
     }
 
     updateBuf[ublen++] = (char)(rfbTightJpeg << 4);
