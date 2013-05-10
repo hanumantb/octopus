@@ -270,6 +270,38 @@ rfbClientConnectionGone(sock)
     xfree(cl);
 }
 
+void
+rfbServerPushClient(sock, cl)
+    int sock;
+    rfbClientPtr cl;
+{
+    rfbLog("rfbServerPush to client %s\n", cl->host);
+    /* Create the sock_addr */
+    struct sockaddr_in client_addr;
+    memset(&client_addr, 0, sizeof(client_addr));
+    client_addr.sin_family = AF_INET;
+    client_addr.sin_addr.s_addr = inet_addr(cl->host);
+    client_addr.sin_port = htons(4999);
+
+    char *message = "hello";
+    int message_len = strlen(message);
+    sendto(sock, message, message_len, 0, (struct sockaddr *)&client_addr, sizeof client_addr);
+    rfbLog("Supposedly sent message %s\n", message);
+}
+
+/*
+ * rfbServerPush is called to push data to all clients.
+ */
+void
+rfbServerPush(sock)
+    int sock;
+{
+    /* Go through all clients. */
+    rfbClientPtr cl;
+    for (cl = rfbClientHead; cl; cl = cl->next) {
+        rfbServerPushClient(sock, cl);
+    }
+}
 
 /*
  * rfbProcessClientMessage is called when there is data to read from a client.
@@ -340,7 +372,7 @@ rfbProcessClientProtocolVersion(cl)
 
     if ((n = ReadExact(cl->sock, pv, sz_rfbProtocolVersionMsg)) <= 0) {
 	if (n == 0)
-	    rfbLog("rfbProcessClientProtocolVersion: client gone\n");
+	    rfbLog("rfbProcessClientProtocolVersion: client gone %s\n");
 	else
 	    rfbLogPerror("rfbProcessClientProtocolVersion: read");
 	rfbCloseSock(cl->sock);

@@ -131,6 +131,7 @@ typedef void (*rfbTranslateFnType)(char *table, rfbPixelFormat *in,
 typedef struct rfbClientRec {
 
     int sock;
+    int udpSock;
     char *host;
     char *login;
 
@@ -479,6 +480,8 @@ extern Bool rfbSendSetColourMapEntries(rfbClientPtr cl, int firstColour,
 				       int nColours);
 extern void rfbSendBell();
 extern void rfbSendServerCutText(char *str, int len);
+/* NEW */
+extern void rfbServerPush(int sock);
 
 
 /* translate.c */
