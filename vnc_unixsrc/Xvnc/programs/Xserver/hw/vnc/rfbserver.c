@@ -331,6 +331,8 @@ sendRegion(cl, y_low, y_high)
     int y_low;
     int y_high;
 {
+    static sent_count = 0;
+    sent_count++;
     RegionRec tmpRegion;
     BoxRec box;
 
@@ -354,10 +356,31 @@ sendRegion(cl, y_low, y_high)
         }
     }
 
-    rfbLog("Sending to client region %d -> %d\n", y_low, y_high);
+    rfbLog("Sending to client region %d -> %d, sent_count=%d\n", y_low, y_high, sent_count);
     rfbSendFramebufferUpdate(cl);
 
     REGION_UNINIT(pScreen,&tmpRegion);
+}
+
+void recursiveSend(cl, y_low, y_high) {
+    int measured_size = measureRegion(cl, y_low, y_high);
+    rfbLog("RECURSIVE SEND (%d, %d) -> %d\n", y_low, y_high, measured_size);
+    if (measured_size < MTU_SIZE) {
+        rfbLog("  recursiveSend: %d < %d (%d, %d)\n",
+            measured_size, MTU_SIZE, y_low, y_high);
+        sendRegion(cl, y_low, y_high);
+        return;
+    }
+    int region_count = (measured_size / MTU_SIZE) + 1;
+    rfbLog("  ================\n");
+    rfbLog("  recursiveSend: %d > %d (%d, %d) region_count=%d\n",
+        measured_size, MTU_SIZE, y_low, y_high, region_count);
+
+    int i;
+    int ywidth = (y_high - y_low) / region_count;
+    for (i = 0; i < region_count; i++) {
+        recursiveSend(cl, y_low + (i) * ywidth, y_low + (i + 1) * ywidth + 1);
+    }
 }
 
 void
@@ -398,27 +421,23 @@ rfbServerPushClient(sock, cl)
 
             /**
              * TODO
-             * 1) Determine if cl has updates to send
-             * 2) If so, try to send each region separately
-             * 3) For each region, see how large message would be
-             * 4) If too large, split region and repeat until can fit into MTU
-             * 5) Send it, record sent region in linked list
-             * 6) Re-send sent regions if not ACKed in RTT
+             * 1) Send over UDP
+             * 2) Receive over UDP
+             * 3) Record sent <id, region, send_time> per sent UDP packet
+             * 4) Loop over and re-send old ones WITH NEW REGION PIXELS, updating send_time
+             * 5) Fix encoding to tight?
+             * 6) Handle out of order on client?
+             *
+             * We want to handle
+             * 1) loss
+             * 2) bandwidth
+             * 3) RTT
              */
-            int measured_size = measureRegion(cl, SCREEN_YMIN, SCREEN_YMAX);
-            int mtu_count = (measured_size / MTU_SIZE) + 1;
-            rfbLog("mtu_count = %d\n", mtu_count);
-
             /* Get bounding heights. */
             int y_low = cl->modifiedRegion.extents.y1;
             int y_high = cl->modifiedRegion.extents.y2;
             rfbLog("Bounding y min/max is %d, %d\n", y_low, y_high);
-
-            int i;
-            int ywidth = (y_high - y_low) / mtu_count;
-            for (i = 0; i < mtu_count; i++) {
-                sendRegion(cl, y_low + (i) * ywidth, y_low + (i + 1) * ywidth);
-            }
+            recursiveSend(cl, y_low, y_high);
 
             last_update = now;
             rfbLog("^^^^\n");
