@@ -336,20 +336,20 @@ public class Protocol implements ProtocolContext, IChangeSettingsListener {
         return protocolVersion;
     }
     
-    private Socket waitForConnection(Socket oldSocket) {
-    	while(true) {
-    		try {
-    			System.out.println("Trying to connect to " + oldSocket.getInetAddress());
-				return new Socket(oldSocket.getInetAddress(), oldSocket.getPort());
-			} catch (IOException e) { /* nop */ }
-    		
-    		try {
-				Thread.sleep(RECONNECT_WAIT_TIME);
-			} catch (InterruptedException e) {
-				return null;
-			}
-    	}
-    }
+//    private Socket waitForConnection(Socket oldSocket) {
+//    	while(true) {
+//    		try {
+//    			System.out.println("Trying to connect to " + oldSocket.getInetAddress());
+//				return new Socket(oldSocket.getInetAddress(), oldSocket.getPort());
+//			} catch (IOException e) { /* nop */ }
+//    		
+//    		try {
+//				Thread.sleep(RECONNECT_WAIT_TIME);
+//			} catch (InterruptedException e) {
+//				return null;
+//			}
+//    	}
+//    }
 
 	@Override
 	public synchronized void restartSession() {

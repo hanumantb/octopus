@@ -81,12 +81,10 @@ public class ReceiverTask implements Runnable {
 		isRunning = true;
 		while (isRunning) {
 			try {
-				System.out.println(Thread.currentThread().getName() + " Reading a byte...");
 				byte messageId = reader.readByte();
-				System.out.println(Thread.currentThread().getName() + " Read a byte: " + messageId);
 				switch (messageId) {
 				case FRAMEBUFFER_UPDATE:
-					logger.fine("Server message: FramebufferUpdate (0)");
+//					logger.fine("Server message: FramebufferUpdate (0)");
 					framebufferUpdateMessage();
 					break;
 				case SET_COLOR_MAP_ENTRIES:
@@ -160,7 +158,6 @@ public class ReceiverTask implements Runnable {
 		while (numberOfRectangles-- > 0) {
 			FramebufferUpdateRectangle rect = new FramebufferUpdateRectangle();
 			rect.fill(reader);
-			System.out.println("DEBUG: rect=" + rect);
 
 			Decoder decoder = decoders.getDecoderByType(rect.getEncodingType());
 			logger.finest(rect.toString() + (0 == numberOfRectangles ? "\n---" : ""));
