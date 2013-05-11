@@ -63,7 +63,7 @@ static void rfbProcessClientNormalMessage(rfbClientPtr cl);
 static Bool rfbSendCopyRegion(rfbClientPtr cl, RegionPtr reg, int dx, int dy);
 static Bool rfbSendLastRectMarker(rfbClientPtr cl);
 
-#define MTU_SIZE (15000)
+#define MTU_SIZE (5900)
 #define SCREEN_XMIN (0)
 #define SCREEN_XMAX (1024)
 #define SCREEN_YMIN (0)
@@ -400,30 +400,13 @@ rfbServerPushClient(cl)
 
         now = GetTimeInMillis();
 
-        const unsigned long push_interval = 1000;
+        const unsigned long push_interval = 250;
         if (now - last_update > push_interval) {
             if (!canSend) {
                 return;
             }
             rfbLog("vvvv\n");
             rfbLog("rfbServerPush to client %s\n", cl->host);
-
-            /* Create the sock_addr */
-            /*
-            struct sockaddr_in client_addr;
-            memset(&client_addr, 0, sizeof(client_addr));
-            client_addr.sin_family = AF_INET;
-            client_addr.sin_addr.s_addr = inet_addr(cl->host);
-            client_addr.sin_port = htons(4999);
-
-            char *message = "hello";
-            int message_len = strlen(message);
-            rfbLog("Supposedly sent message %s\n", message);
-            if (sendto(sock, message, message_len, 0,
-                (struct sockaddr *)&client_addr, sizeof client_addr) == -1) {
-                rfbLog("Error sending UDP message to %s\n", cl->host);
-            }
-            */
 
             /* Get bounding heights. */
             int y_low = cl->modifiedRegion.extents.y1;
