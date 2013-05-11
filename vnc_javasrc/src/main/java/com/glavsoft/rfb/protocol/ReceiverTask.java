@@ -65,14 +65,13 @@ public class ReceiverTask implements Runnable {
 
 	public ReceiverTask(Reader reader,
 	                    IRepaintController repaintController, ClipboardController clipboardController,
-	                    DecodersContainer decoders, ProtocolContext context) {
+	                    DecodersContainer decoders, ProtocolContext context, Renderer renderer) {
 		this.reader = reader;
 		this.repaintController = repaintController;
 		this.clipboardController = clipboardController;
 		this.context = context;
 		this.decoders = decoders;
-		renderer = repaintController.createRenderer(reader, context.getFbWidth(), context.getFbHeight(),
-				context.getPixelFormat());
+		this.renderer = renderer;
 		fullscreenFbUpdateIncrementalRequest =
 			new FramebufferUpdateRequestMessage(0, 0, context.getFbWidth(), context.getFbHeight(), true);
 	}
@@ -82,10 +81,12 @@ public class ReceiverTask implements Runnable {
 		isRunning = true;
 		while (isRunning) {
 			try {
+				System.out.println(Thread.currentThread().getName() + " Reading a byte...");
 				byte messageId = reader.readByte();
+				System.out.println(Thread.currentThread().getName() + " Read a byte: " + messageId);
 				switch (messageId) {
 				case FRAMEBUFFER_UPDATE:
-//					logger.fine("Server message: FramebufferUpdate (0)");
+					logger.fine("Server message: FramebufferUpdate (0)");
 					framebufferUpdateMessage();
 					break;
 				case SET_COLOR_MAP_ENTRIES:
@@ -107,8 +108,8 @@ public class ReceiverTask implements Runnable {
 			} catch (TransportException e) {
 				if (isRunning) {
 					logger.severe("Close session: " + e.getMessage());
-//					context.cleanUpSession("Connection closed.");
-					context.restartSession();
+					context.cleanUpSession("Connection closed.");
+//					context.restartSession();
 				}
 				stopTask();
 			} catch (ProtocolException e) {
@@ -159,6 +160,7 @@ public class ReceiverTask implements Runnable {
 		while (numberOfRectangles-- > 0) {
 			FramebufferUpdateRectangle rect = new FramebufferUpdateRectangle();
 			rect.fill(reader);
+			System.out.println("DEBUG: rect=" + rect);
 
 			Decoder decoder = decoders.getDecoderByType(rect.getEncodingType());
 			logger.finest(rect.toString() + (0 == numberOfRectangles ? "\n---" : ""));

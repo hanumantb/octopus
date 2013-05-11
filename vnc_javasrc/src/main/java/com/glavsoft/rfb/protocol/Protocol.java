@@ -25,10 +25,13 @@
 package com.glavsoft.rfb.protocol;
 
 import java.io.IOException;
+import java.net.DatagramSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.logging.Logger;
 
 import com.glavsoft.core.SettingsChangedEvent;
+import com.glavsoft.drawing.Renderer;
 import com.glavsoft.exceptions.AuthenticationFailedException;
 import com.glavsoft.exceptions.FatalException;
 import com.glavsoft.exceptions.TransportException;
@@ -48,6 +51,7 @@ import com.glavsoft.rfb.encoding.decoder.DecodersContainer;
 import com.glavsoft.rfb.protocol.state.HandshakeState;
 import com.glavsoft.rfb.protocol.state.ProtocolState;
 import com.glavsoft.transport.Reader;
+import com.glavsoft.transport.UDPInputStream;
 import com.glavsoft.transport.Writer;
 import com.glavsoft.viewer.RfbConnectionWorker;
 
@@ -204,6 +208,22 @@ public class Protocol implements ProtocolContext, IChangeSettingsListener {
 		settings.addListener(repaintController);
 
 		sendRefreshMessage();
+
+		Renderer renderer = repaintController.createRenderer(reader, getFbWidth(), getFbHeight(), getPixelFormat());
+
+		UDPInputStream udpInputStream;
+		try {
+			udpInputStream = new UDPInputStream(new DatagramSocket(6829));
+			ReceiverTask udpReceiverTask = new ReceiverTask(
+					new Reader(udpInputStream), repaintController,
+					clipboardController,
+					decoders, this, renderer);
+			Thread udpThread = new Thread(udpReceiverTask, "UdpReceiverTask");
+			udpThread.start();
+		} catch (SocketException e) {
+			e.printStackTrace();
+		}
+		
 		senderTask = new SenderTask(messageQueue, writer, this);
 		senderThread = new Thread(senderTask, "RfbSenderTask");
 		senderThread.start();
@@ -211,7 +231,7 @@ public class Protocol implements ProtocolContext, IChangeSettingsListener {
 		receiverTask = new ReceiverTask(
 				reader, repaintController,
 				clipboardController,
-				decoders, this);
+				decoders, this, renderer);
 		receiverThread = new Thread(receiverTask, "RfbReceiverTask");
 		receiverThread.start();
 	}
@@ -334,6 +354,7 @@ public class Protocol implements ProtocolContext, IChangeSettingsListener {
 	@Override
 	public synchronized void restartSession() {
 		cleanUpSession();
+		/* DISABLE RECONNECT.
 		workingSocket = waitForConnection(workingSocket);
 		worker.setWorkingSocket(workingSocket);
 		try {
@@ -366,6 +387,7 @@ public class Protocol implements ProtocolContext, IChangeSettingsListener {
 		} catch (FatalException e) {
 			e.printStackTrace();
 		}
+		*/
 	}
 
 }

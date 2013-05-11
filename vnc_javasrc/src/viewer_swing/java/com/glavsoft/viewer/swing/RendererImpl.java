@@ -38,7 +38,7 @@ import java.util.concurrent.TimeoutException;
 
 public class RendererImpl extends Renderer implements ImageObserver {
     CyclicBarrier barrier = new CyclicBarrier(2);
-    private final Image offscreanImage;
+    private final Image offscreenImage;
 	public RendererImpl(Reader reader, int width, int height, PixelFormat pixelFormat) {
 		if (0 == width) width = 1;
 		if (0 == height) height = 1;
@@ -50,7 +50,7 @@ public class RendererImpl extends Renderer implements ImageObserver {
 		DataBuffer dataBuffer = new DataBufferInt(pixels, width * height);
 		WritableRaster raster = Raster.createWritableRaster(sampleModel,
 				dataBuffer, null);
-		offscreanImage = new BufferedImage(colorModel, raster, false, null);
+		offscreenImage = new BufferedImage(colorModel, raster, false, null);
 		cursor = new SoftCursorImpl(0, 0, 0, 0);
 	}
 
@@ -77,7 +77,7 @@ public class RendererImpl extends Renderer implements ImageObserver {
 		} catch (TimeoutException e) {
 			// nop
 		}
-		Graphics graphics = offscreanImage.getGraphics();
+		Graphics graphics = offscreenImage.getGraphics();
 		graphics.drawImage(jpegImage, rect.x, rect.y, rect.width, rect.height, this);
 	}
 
@@ -99,7 +99,7 @@ public class RendererImpl extends Renderer implements ImageObserver {
 
 	/* Swing specific interface */
 	public Image getOffscreenImage() {
-		return offscreanImage;
+		return offscreenImage;
 	}
 
 	public SoftCursorImpl getCursor() {

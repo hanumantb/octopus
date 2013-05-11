@@ -24,18 +24,6 @@
 
 package com.glavsoft.viewer.swing;
 
-import com.glavsoft.exceptions.*;
-import com.glavsoft.rfb.IPasswordRetriever;
-import com.glavsoft.rfb.IRfbSessionListener;
-import com.glavsoft.rfb.protocol.Protocol;
-import com.glavsoft.rfb.protocol.ProtocolSettings;
-import com.glavsoft.transport.Reader;
-import com.glavsoft.transport.Writer;
-import com.glavsoft.utils.Strings;
-import com.glavsoft.viewer.*;
-import com.glavsoft.viewer.swing.gui.PasswordDialog;
-
-import javax.swing.*;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.net.Socket;
@@ -43,6 +31,29 @@ import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.logging.Logger;
+
+import javax.swing.JFrame;
+import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
+
+import com.glavsoft.exceptions.AuthenticationFailedException;
+import com.glavsoft.exceptions.FatalException;
+import com.glavsoft.exceptions.TransportException;
+import com.glavsoft.exceptions.UnsupportedProtocolVersionException;
+import com.glavsoft.exceptions.UnsupportedSecurityTypeException;
+import com.glavsoft.rfb.IPasswordRetriever;
+import com.glavsoft.rfb.IRfbSessionListener;
+import com.glavsoft.rfb.protocol.Protocol;
+import com.glavsoft.rfb.protocol.ProtocolSettings;
+import com.glavsoft.transport.Reader;
+import com.glavsoft.transport.Writer;
+import com.glavsoft.utils.Strings;
+import com.glavsoft.viewer.ConnectionErrorException;
+import com.glavsoft.viewer.ConnectionPresenter;
+import com.glavsoft.viewer.ConnectionWorker;
+import com.glavsoft.viewer.RfbConnectionWorker;
+import com.glavsoft.viewer.UiSettings;
+import com.glavsoft.viewer.swing.gui.PasswordDialog;
 
 /**
 * @author dime at tightvnc.com
