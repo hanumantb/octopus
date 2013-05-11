@@ -24,19 +24,24 @@
 
 package com.glavsoft.transport;
 
+import java.io.DataInput;
+import java.io.DataInputStream;
+import java.io.EOFException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.Charset;
+
 import com.glavsoft.exceptions.ClosedConnectionException;
 import com.glavsoft.exceptions.TransportException;
-
-import java.io.*;
-import java.nio.charset.Charset;
 
 public class Reader {
 	final static Charset ISO_8859_1 = Charset.forName("ISO-8859-1");
 	final static Charset UTF8 = Charset.forName("UTF-8");
-	private final DataInputStream is;
-
+	private final DataInput is;
+	
 	public Reader(InputStream is) {
-		this.is = new DataInputStream(new BufferedInputStream(is));
+//		this.is = new DataInputStream(new BufferedInputStream(is));
+		this.is = new DataInputStream(is);
 	}
 
 	public byte readByte() throws TransportException {
