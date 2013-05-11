@@ -77,6 +77,7 @@ public class SwingRfbConnectionWorker extends SwingWorker<Void, String> implemen
     public Void doInBackground() throws Exception {
         if (null == workingSocket) throw new ConnectionErrorException("Null socket");
         workingSocket.setTcpNoDelay(true); // disable Nagle algorithm
+        workingSocket.setKeepAlive(true);
         Reader reader = new Reader(workingSocket.getInputStream());
         Writer writer = new Writer(workingSocket.getOutputStream());
 
@@ -284,4 +285,9 @@ public class SwingRfbConnectionWorker extends SwingWorker<Void, String> implemen
             return passwordDialog.getPassword();
         }
     }
+
+	@Override
+	public void setNetworkStatus(String status) {
+		viewerWindow.setNetworkStatus(status);
+	}
 }

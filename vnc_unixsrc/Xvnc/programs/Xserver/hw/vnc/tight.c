@@ -543,10 +543,12 @@ SendSubrect(cl, x, y, w, h)
     Bool success = FALSE;
 
     /* Send pending data if there is more than 128 bytes. */
+    /*
     if (ublen > 128) {
         if (!rfbSendUpdateBuf(cl))
             return FALSE;
     }
+    */
 
     if (!SendTightHeader(cl, x, y, w, h))
         return FALSE;

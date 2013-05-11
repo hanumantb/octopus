@@ -130,6 +130,12 @@ typedef void (*rfbTranslateFnType)(char *table, rfbPixelFormat *in,
 
 typedef struct rfbClientRec {
 
+    /* CUSTOM FIELDS */
+    Bool measuring;
+    int udpSock;
+    Bool useUdp;
+    /* END CUSTOM FIELDS */
+
     int sock;
     char *host;
     char *login;
@@ -454,7 +460,7 @@ extern void KbdReleaseAllKeys();
  * means 8K minimum.
  */
 
-#define UPDATE_BUF_SIZE 30000
+#define UPDATE_BUF_SIZE 3000000 /* ORIGINAL SIZE IS 30000 */
 extern char updateBuf[UPDATE_BUF_SIZE];
 extern int ublen;
 
@@ -466,7 +472,7 @@ extern Bool rfbNeverShared;
 extern Bool rfbDontDisconnect;
 extern Bool rfbViewOnly; /* run server in view-only mode - Ehud Karni SW */
 
-extern void rfbNewClientConnection(int sock);
+extern void rfbNewClientConnection(int sock, int udpSock);
 extern rfbClientPtr rfbReverseConnection(char *host, int port);
 extern void rfbClientConnectionGone(int sock);
 extern void rfbProcessClientMessage(int sock);
@@ -479,6 +485,8 @@ extern Bool rfbSendSetColourMapEntries(rfbClientPtr cl, int firstColour,
 				       int nColours);
 extern void rfbSendBell();
 extern void rfbSendServerCutText(char *str, int len);
+/* NEW */
+extern void rfbServerPush();
 
 
 /* translate.c */

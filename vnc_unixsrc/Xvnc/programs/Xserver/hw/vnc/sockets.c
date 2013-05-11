@@ -67,6 +67,8 @@ int rfbMaxClientWait = 20000;	/* time (ms) after which we decide client has
 int rfbPort = 0;
 int rfbListenSock = -1;
 
+int udpPushSock = -1;
+
 int udpPort = 0;
 int udpSock = -1;
 Bool udpSockConnected = FALSE;
@@ -115,7 +117,7 @@ rfbInitSockets()
     if (rfbPort == 0) {
 	rfbPort = 5900 + atoi(display);
     }
-
+    
     rfbLog("Listening for VNC connections on TCP port %d\n", rfbPort);
 
     if ((rfbListenSock = ListenOnTCPPort(rfbPort)) < 0) {
@@ -129,6 +131,13 @@ rfbInitSockets()
     FD_SET(rfbListenSock, &allFds);
     maxFd = rfbListenSock;
 
+    rfbLog("Creating UDP socket for pushing out data\n");
+    if ((udpPushSock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
+        rfbLogPerror("Error creating UDP socket");
+        exit(1);
+    }
+
+    /*
     if (udpPort != 0) {
 	rfbLog("rfbInitSockets: listening for input on UDP port %d\n",udpPort);
 
@@ -140,8 +149,8 @@ rfbInitSockets()
 	FD_SET(udpSock, &allFds);
 	maxFd = max(udpSock,maxFd);
     }
+    */
 }
-
 
 /*
  * rfbCheckFds is called from ProcessInputEvents to check for input on the RFB
@@ -164,9 +173,12 @@ rfbCheckFds()
     static Bool inetdInitDone = FALSE;
 
     if (!inetdInitDone && inetdSock != -1) {
-	rfbNewClientConnection(inetdSock); 
+	rfbNewClientConnection(inetdSock, udpSock); 
 	inetdInitDone = TRUE;
     }
+
+    /* SERVER PUSH. */
+    rfbServerPush();
 
     memcpy((char *)&fds, (char *)&allFds, sizeof(fd_set));
     tv.tv_sec = 0;
@@ -219,7 +231,7 @@ rfbCheckFds()
 	FD_SET(sock, &allFds);
 	maxFd = max(sock,maxFd);
 
-	rfbNewClientConnection(sock);
+	rfbNewClientConnection(sock, udpPushSock);
 
 	FD_CLR(rfbListenSock, &fds);
 	if (--nfds == 0)
