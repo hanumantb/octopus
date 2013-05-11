@@ -63,7 +63,7 @@ static void rfbProcessClientNormalMessage(rfbClientPtr cl);
 static Bool rfbSendCopyRegion(rfbClientPtr cl, RegionPtr reg, int dx, int dy);
 static Bool rfbSendLastRectMarker(rfbClientPtr cl);
 
-#define MTU_SIZE (5900)
+#define MTU_SIZE (2900)
 #define SCREEN_XMIN (0)
 #define SCREEN_XMAX (1024)
 #define SCREEN_YMIN (0)
@@ -285,18 +285,20 @@ rfbClientConnectionGone(sock)
 static Bool canSend = FALSE;
 
 int
-measureRegion(cl, y_low, y_high)
+measureRegion(cl, x_low, y_low, x_high, y_high)
     rfbClientPtr cl;
+	int x_low;
     int y_low;
+    int x_high;
     int y_high;
 {
     RegionRec tmpRegion;
     BoxRec box;
     int measured_size;
 
-    box.x1 = SCREEN_XMIN;
+    box.x1 = x_low;
     box.y1 = y_low;
-    box.x2 = SCREEN_XMAX;
+    box.x2 = x_high;
     box.y2 = y_high;
     SAFE_REGION_INIT(pScreen,&tmpRegion,&box,0);
 
@@ -330,9 +332,11 @@ measureRegion(cl, y_low, y_high)
 }
 
 void
-sendRegion(cl, y_low, y_high)
+sendRegion(cl, x_low, y_low, x_high, y_high)
     rfbClientPtr cl;
+	int x_low;
     int y_low;
+    int x_high;
     int y_high;
 {
     static sent_count = 0;
@@ -340,9 +344,9 @@ sendRegion(cl, y_low, y_high)
     RegionRec tmpRegion;
     BoxRec box;
 
-    box.x1 = SCREEN_XMIN;
+    box.x1 = x_low;
     box.y1 = y_low;
-    box.x2 = SCREEN_XMAX;
+    box.x2 = x_high;
     box.y2 = y_high;
     SAFE_REGION_INIT(pScreen,&tmpRegion,&box,0);
 
@@ -368,24 +372,46 @@ sendRegion(cl, y_low, y_high)
     REGION_UNINIT(pScreen,&tmpRegion);
 }
 
-void recursiveSend(cl, y_low, y_high) {
-    int measured_size = measureRegion(cl, y_low, y_high);
-    rfbLog("RECURSIVE SEND (%d, %d) -> %d\n", y_low, y_high, measured_size);
+void recursiveSend(cl, x_low, y_low, x_high, y_high)
+	rfbClientPtr cl;
+	int x_low;
+	int y_low;
+	int x_high;
+	int y_high;
+{
+    int measured_size = measureRegion(cl, x_low, y_low, x_high, y_high);
+    rfbLog("RECURSIVE SEND (%d,%d)(%d,%d) -> %d\n", x_low, y_low, x_high, y_high, measured_size);
     if (measured_size < MTU_SIZE) {
-        rfbLog("  recursiveSend: %d < %d (%d, %d)\n",
-            measured_size, MTU_SIZE, y_low, y_high);
-        sendRegion(cl, y_low, y_high);
+        rfbLog("  recursiveSend: %d < %d for (%d,%d)(%d,%d)\n",
+            measured_size, MTU_SIZE, x_low, y_low, x_high, y_high);
+        sendRegion(cl, x_low, y_low, x_high, y_high);
         return;
     }
     int region_count = (measured_size / MTU_SIZE) + 1;
     rfbLog("  ================\n");
-    rfbLog("  recursiveSend: %d > %d (%d, %d) region_count=%d\n",
-        measured_size, MTU_SIZE, y_low, y_high, region_count);
+    rfbLog("  recursiveSend: %d > %d for (%d,%d)(%d,%d) region_count=%d\n",
+        measured_size, MTU_SIZE, x_low, y_low, x_high, y_high, region_count);
 
+    if (region_count > 8) {
+    	region_count = 8;
+    }
+
+    /* Split on longer edge. */
     int i;
-    int y_width = (y_high - y_low) / region_count;
-    for (i = 0; i < region_count; i++) {
-        recursiveSend(cl, y_low + (i) * y_width, y_low + (i + 1) * y_width + 1);
+    if ((x_high - x_low) > (y_high - y_low)) {
+    	/* Split on x. */
+    	int x_width = (x_high - x_low) / region_count;
+    	for (i = 0; i < region_count; i++) {
+    		recursiveSend(cl, x_low + (i*x_width),
+    				y_low, x_low + ((i + 1)*x_width) + 1, y_high);
+    	}
+    } else {
+    	/* Split on y. */
+        int y_width = (y_high - y_low) / region_count;
+        for (i = 0; i < region_count; i++) {
+            recursiveSend(cl, x_low, y_low + (i*y_width),
+            		x_high, y_low + ((i + 1)*y_width) + 1);
+        }
     }
 }
 
@@ -409,10 +435,12 @@ rfbServerPushClient(cl)
             rfbLog("rfbServerPush to client %s\n", cl->host);
 
             /* Get bounding heights. */
+            int x_low = cl->modifiedRegion.extents.x1;
             int y_low = cl->modifiedRegion.extents.y1;
+            int x_high = cl->modifiedRegion.extents.x2;
             int y_high = cl->modifiedRegion.extents.y2;
-            rfbLog("Bounding y min/max is %d, %d\n", y_low, y_high);
-            recursiveSend(cl, y_low, y_high);
+            rfbLog("Bounding box is (%d,%d) -> (%d,%d)\n", x_low, y_low, x_high, y_high);
+            recursiveSend(cl, x_low, y_low, x_high, y_high);
 
             last_update = now;
             rfbLog("^^^^\n");
