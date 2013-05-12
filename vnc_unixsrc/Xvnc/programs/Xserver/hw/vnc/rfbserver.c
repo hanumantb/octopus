@@ -63,7 +63,7 @@ static void rfbProcessClientNormalMessage(rfbClientPtr cl);
 static Bool rfbSendCopyRegion(rfbClientPtr cl, RegionPtr reg, int dx, int dy);
 static Bool rfbSendLastRectMarker(rfbClientPtr cl);
 
-#define MAX_UPDATE_SIZE (2900)
+#define MAX_UPDATE_SIZE (2 * (1500) - 100)
 #define SCREEN_XMIN (0)
 #define SCREEN_XMAX (1024)
 #define SCREEN_YMIN (0)
@@ -73,7 +73,7 @@ static Bool rfbSendLastRectMarker(rfbClientPtr cl);
 const unsigned long serverPushInterval = 500;
 const unsigned long retransmitTimeout = 1000;
 
-CARD32 globalSeqNum = 0;
+CARD32 seqNumCounter = 0;
 
 typedef struct SendRegionRec {
 	CARD32 seqNum;
@@ -270,7 +270,8 @@ rfbNewClient(sock, udpSock)
     int sock;
     int udpSock;
 {
-    globalSeqNum = 0; /* Reset sequence number for new client */
+    srRecFree();
+    seqNumCounter = 0; /* Reset sequence number for new client */
 
     rfbProtocolVersionMsg pv;
     rfbClientPtr cl;
@@ -513,7 +514,7 @@ sendRegion(cl, x_low, y_low, x_high, y_high)
     SendRegionRec * srRec = (SendRegionRec *) xalloc(sizeof(SendRegionRec));
 
     REGION_INIT(pScreen, &(srRec->region), NullBox, 0);
-    srRec->seqNum = globalSeqNum; globalSeqNum++;
+    srRec->seqNum = seqNumCounter; seqNumCounter++;
 
     rfbLog("Sending to client region %d -> %d, sent_count=%d\n", y_low, y_high, sent_count);
     cl->useUdp = TRUE;
@@ -523,10 +524,9 @@ sendRegion(cl, x_low, y_low, x_high, y_high)
     srRec->time = GetTimeInMillis();
     srRec->prev = NULL;
     srRec->next = NULL;
-    rfbLog(". . . srRec->time = %lu ->seqNum = %lu\n", srRec->time, srRec->seqNum);
+    rfbLog("srRec->time = %lu / srRec->seqNum = %lu\n", srRec->time, srRec->seqNum);
 
-    REGION_UNINIT(pScreen, &(srRec->region));
-    xfree(srRec);
+    srRecAdd(srRec);
 
     REGION_UNINIT(pScreen,&tmpRegion);
 }
@@ -590,12 +590,17 @@ rfbServerPushClient(cl)
             rfbLog("vvvv\n");
             rfbLog("rfbServerPush to client %s\n", cl->host);
 
+            srRecSetupRetransmit(cl);
+
             /* Get bounding heights. */
             int x_low = cl->modifiedRegion.extents.x1;
             int y_low = cl->modifiedRegion.extents.y1;
             int x_high = cl->modifiedRegion.extents.x2;
             int y_high = cl->modifiedRegion.extents.y2;
             rfbLog("Bounding box is (%d,%d) -> (%d,%d)\n", x_low, y_low, x_high, y_high);
+
+            srRecSendRegion(&(cl->modifiedRegion));
+
             recursiveSend(cl, x_low, y_low, x_high, y_high);
 
             last_update = now;
@@ -1272,7 +1277,7 @@ rfbProcessClientNormalMessage(cl)
     	}
 
     	msg.fua.seqNum = Swap32IfLE(msg.fua.seqNum);
-    	rfbLog("acked seqNum = %lu\n", msg.fua.seqNum);
+    	srRecDeleteSeqNum(msg.fua.seqNum);
 
     	return;
 
