@@ -71,7 +71,9 @@ static Bool rfbSendLastRectMarker(rfbClientPtr cl);
 
 /* TODO: Fix, currently 15 FPS */
 const unsigned long serverPushInterval = 66;
-const unsigned long retransmitTimeout = 25;
+unsigned long retransmitTimeout = 25;
+double srtt = 0.0;
+double rttvar = 0.0;
 
 CARD32 seqNumCounter = 0;
 
@@ -153,7 +155,7 @@ void srRecDelete(srRec)
 	srRecCount--;
 }
 
-Bool srRecDeleteSeqNum(seqNum)
+unsigned long srRecDeleteSeqNum(seqNum)
 	CARD32 seqNum;
 {
 	SendRegionRec * cur = srRecFirst;
@@ -163,14 +165,15 @@ Bool srRecDeleteSeqNum(seqNum)
 		next = cur->next;
 
 		if (cur->seqNum == seqNum) {
+			unsigned long time = cur->time;
 			srRecDelete(cur);
-			return TRUE;
+			return time;
 		}
 
 		cur = next;
 	}
 
-	return FALSE;
+	return (unsigned long) 0;
 }
 
 void srRecSetupRetransmit(cl)
@@ -1280,7 +1283,29 @@ rfbProcessClientNormalMessage(cl)
     	}
 
     	msg.fua.seqNum = Swap32IfLE(msg.fua.seqNum);
-    	srRecDeleteSeqNum(msg.fua.seqNum);
+    	unsigned long timeSent = srRecDeleteSeqNum(msg.fua.seqNum);
+    	if (timeSent != 0) {
+    		unsigned long timeCurrent = GetTimeInMillis();
+
+    		double r = (double) timeCurrent - timeSent;
+    		if (srtt == 0.0) {
+    			srtt = r;
+    			rttvar = r / 2.0;
+    		} else {
+    			double diff = srtt - r;
+    			if (diff < 0) {
+    				diff = -diff;
+    			}
+
+    			rttvar = 0.75 * rttvar + 0.25 * diff;
+    			srtt = 0.875 * srtt + 0.125 * r;
+    		}
+
+    		retransmitTimeout = (unsigned long) (srtt + 4 * rttvar);
+    		if (retransmitTimeout < 50) {
+    			retransmitTimeout = 50;
+    		}
+    	}
 
     	return;
 
