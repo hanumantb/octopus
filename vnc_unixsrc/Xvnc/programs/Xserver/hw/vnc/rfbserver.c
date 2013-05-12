@@ -69,9 +69,9 @@ static Bool rfbSendLastRectMarker(rfbClientPtr cl);
 #define SCREEN_YMIN (0)
 #define SCREEN_YMAX (768)
 
-/* TODO: Fix */
-const unsigned long serverPushInterval = 500;
-const unsigned long retransmitTimeout = 1000;
+/* TODO: Fix, currently 15 FPS */
+const unsigned long serverPushInterval = 66;
+const unsigned long retransmitTimeout = 25;
 
 CARD32 seqNumCounter = 0;
 
@@ -365,6 +365,7 @@ rfbNewClient(sock, udpSock)
     return cl;
 }
 
+static Bool canSend = FALSE;
 
 /*
  * rfbClientConnectionGone is called from sockets.c just after a connection
@@ -395,6 +396,8 @@ rfbClientConnectionGone(sock)
 	rfbLog("Client %s gone\n", cl->host);
     }
     free(cl->host);
+
+    canSend = FALSE;
 
     /* Release the compression state structures if any. */
     if ( cl->compStreamInited == TRUE ) {
@@ -428,8 +431,6 @@ rfbClientConnectionGone(sock)
 
     xfree(cl);
 }
-
-static Bool canSend = FALSE;
 
 int
 measureRegion(cl, x_low, y_low, x_high, y_high)
@@ -584,7 +585,7 @@ rfbServerPushClient(cl)
         unsigned long now = GetTimeInMillis();
 
         if (now - last_update > serverPushInterval) {
-            if (!canSend) {
+            if (canSend == FALSE) {
                 return;
             }
             rfbLog("vvvv\n");
