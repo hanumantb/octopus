@@ -1822,7 +1822,7 @@ rfbDeferredUpdateCallback(OsTimerPtr timer, CARD32 now, pointer arg)
 {
   rfbClientPtr cl = (rfbClientPtr)arg;
 
-  rfbSendFramebufferUpdate(cl);
+  rfbSendFramebufferUpdate(cl, NULL, 0xFFFFFFFF);
 
   cl->deferredUpdateScheduled = FALSE;
   return 0;
@@ -1843,7 +1843,7 @@ rfbScheduleDeferredUpdate(rfbClientPtr cl)
 					   rfbDeferredUpdateCallback, cl);
 	cl->deferredUpdateScheduled = TRUE;
     } else {
-	rfbSendFramebufferUpdate(cl);
+	rfbSendFramebufferUpdate(cl, NULL, 0xFFFFFFFF);
     }
 }
 

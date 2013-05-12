@@ -408,6 +408,8 @@ typedef struct _rfbInteractionCapsMsg {
 #define rfbPointerEvent 5
 #define rfbClientCutText 6
 
+#define rfbFramebufferUpdateAck 7
+
 #define rfbFileListRequest 130
 #define rfbFileDownloadRequest 131
 #define rfbFileUploadRequest 132
@@ -521,10 +523,11 @@ typedef struct _rfbFramebufferUpdateMsg {
     CARD8 type;			/* always rfbFramebufferUpdate */
     CARD8 pad;
     CARD16 nRects;
+    CARD32 seqNum;
     /* followed by nRects rectangles */
 } rfbFramebufferUpdateMsg;
 
-#define sz_rfbFramebufferUpdateMsg 4
+#define sz_rfbFramebufferUpdateMsg 8
 
 /*
  * Each rectangle of pixel data consists of a header describing the position
@@ -1055,7 +1058,6 @@ typedef struct _rfbFramebufferUpdateRequestMsg {
 
 #define sz_rfbFramebufferUpdateRequestMsg 10
 
-
 /*-----------------------------------------------------------------------------
  * KeyEvent - key press or release
  *
@@ -1131,6 +1133,15 @@ typedef struct _rfbClientCutTextMsg {
 } rfbClientCutTextMsg;
 
 #define sz_rfbClientCutTextMsg 8
+
+typedef struct _rfbFramebufferUpdateAckMsg {
+    CARD8 type;			/* always rfbFramebufferUpdateAck */
+    CARD8 pad1;
+    CARD16 pad2;
+    CARD32 seqNum;
+} rfbFramebufferUpdateAckMsg;
+
+#define sz_rfbFramebufferUpdateAckMsg 8
 
 /*-----------------------------------------------------------------------------
  * FileListRequest
@@ -1241,6 +1252,7 @@ typedef union _rfbClientToServerMsg {
     rfbKeyEventMsg ke;
     rfbPointerEventMsg pe;
     rfbClientCutTextMsg cct;
+    rfbFramebufferUpdateAckMsg fua;
     rfbFileListRequestMsg flr;
     rfbFileDownloadRequestMsg fdr;
     rfbFileUploadRequestMsg fupr;

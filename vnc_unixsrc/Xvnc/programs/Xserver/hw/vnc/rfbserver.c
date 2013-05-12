@@ -63,11 +63,155 @@ static void rfbProcessClientNormalMessage(rfbClientPtr cl);
 static Bool rfbSendCopyRegion(rfbClientPtr cl, RegionPtr reg, int dx, int dy);
 static Bool rfbSendLastRectMarker(rfbClientPtr cl);
 
-#define MTU_SIZE (2900)
+#define MAX_UPDATE_SIZE (2900)
 #define SCREEN_XMIN (0)
 #define SCREEN_XMAX (1024)
 #define SCREEN_YMIN (0)
 #define SCREEN_YMAX (768)
+
+/* TODO: Fix */
+const unsigned long serverPushInterval = 500;
+const unsigned long retransmitTimeout = 1000;
+
+CARD32 globalSeqNum = 0;
+
+typedef struct SendRegionRec {
+	CARD32 seqNum;
+	unsigned long time;
+	RegionRec region;
+
+	struct SendRegionRec * prev;
+	struct SendRegionRec * next;
+} SendRegionRec;
+
+SendRegionRec * srRecFirst = NULL;
+SendRegionRec * srRecLast = NULL;
+unsigned int srRecCount = 0;
+
+void srRecFree()
+{
+	SendRegionRec * cur = srRecFirst;
+	SendRegionRec * next;
+
+	while (cur != NULL) {
+		next = cur->next;
+
+		REGION_UNINIT(pScreen, &(cur->region));
+		xfree(cur);
+
+		cur = next;
+	}
+
+	srRecFirst = NULL;
+	srRecLast = NULL;
+	srRecCount = 0;
+}
+
+void srRecAdd(srRec)
+	SendRegionRec * srRec;
+{
+	if (srRecLast != NULL) {
+		srRecLast->next = srRec;
+		srRec->prev = srRecLast;
+		srRecLast = srRec;
+	} else {
+		srRecFirst = srRec;
+		srRecLast = srRec;
+	}
+	srRecCount++;
+}
+
+void srRecDelete(srRec)
+	SendRegionRec * srRec;
+{
+	SendRegionRec * prev = srRec->prev;
+	SendRegionRec * next = srRec->next;
+
+	if (prev != NULL) {
+		if (next != NULL) {
+			prev->next = next;
+			next->prev = prev;
+		} else {
+			prev->next = NULL;
+			srRecLast = prev;
+		}
+	} else {
+		if (next != NULL) {
+			next->prev = NULL;
+			srRecFirst = next;
+		} else {
+			srRecFirst = NULL;
+			srRecLast = NULL;
+		}
+	}
+
+	REGION_UNINIT(pScreen, &(srRec->region));
+	xfree(srRec);
+
+	srRecCount--;
+}
+
+Bool srRecDeleteSeqNum(seqNum)
+	CARD32 seqNum;
+{
+	SendRegionRec * cur = srRecFirst;
+	SendRegionRec * next;
+
+	while (cur != NULL) {
+		next = cur->next;
+
+		if (cur->seqNum == seqNum) {
+			srRecDelete(cur);
+			return TRUE;
+		}
+
+		cur = next;
+	}
+
+	return FALSE;
+}
+
+void srRecSetupRetransmit(cl)
+	rfbClientPtr cl;
+{
+	SendRegionRec * cur = srRecFirst;
+	SendRegionRec * next;
+
+	unsigned long now = GetTimeInMillis();
+
+	while (cur != NULL) {
+		next = cur->next;
+
+		if (now - cur->time > retransmitTimeout) {
+			REGION_UNION(pScreen, &(cl->modifiedRegion),
+						 &(cl->modifiedRegion), &(cur->region));
+
+			srRecDelete(cur);
+		} else {
+			break;
+		}
+
+		cur = next;
+	}
+}
+
+void srRecSendRegion(regionPtr)
+	RegionRec * regionPtr;
+{
+	SendRegionRec * cur = srRecFirst;
+	SendRegionRec * next;
+
+	while (cur != NULL) {
+		next = cur->next;
+
+		REGION_SUBTRACT(pScreen, &(cur->region), &(cur->region), regionPtr);
+		if (!REGION_NOTEMPTY(pScreen, &(cur->region))) {
+			srRecDelete(cur);
+		}
+
+		cur = next;
+	}
+}
 
 /*
  * rfbNewClientConnection is called from sockets.c when a new connection
@@ -126,6 +270,8 @@ rfbNewClient(sock, udpSock)
     int sock;
     int udpSock;
 {
+    globalSeqNum = 0; /* Reset sequence number for new client */
+
     rfbProtocolVersionMsg pv;
     rfbClientPtr cl;
     BoxRec box;
@@ -320,7 +466,7 @@ measureRegion(cl, x_low, y_low, x_high, y_high)
     /* rfbLog("  client has %d regions\n", cl->modifiedRegion.data->size); */
     rfbLog("MEASURING:\n");
     cl->measuring = TRUE;
-    rfbSendFramebufferUpdate(cl);
+    rfbSendFramebufferUpdate(cl, NULL, 0xFFFFFFFF);
     cl->measuring = FALSE;
     measured_size = ublen;
     ublen = 0;
@@ -364,10 +510,23 @@ sendRegion(cl, x_low, y_low, x_high, y_high)
         }
     }
 
+    SendRegionRec * srRec = (SendRegionRec *) xalloc(sizeof(SendRegionRec));
+
+    REGION_INIT(pScreen, &(srRec->region), NullBox, 0);
+    srRec->seqNum = globalSeqNum; globalSeqNum++;
+
     rfbLog("Sending to client region %d -> %d, sent_count=%d\n", y_low, y_high, sent_count);
     cl->useUdp = TRUE;
-    rfbSendFramebufferUpdate(cl);
+    rfbSendFramebufferUpdate(cl, &(srRec->region), srRec->seqNum);
     cl->useUdp = FALSE;
+
+    srRec->time = GetTimeInMillis();
+    srRec->prev = NULL;
+    srRec->next = NULL;
+    rfbLog(". . . srRec->time = %lu ->seqNum = %lu\n", srRec->time, srRec->seqNum);
+
+    REGION_UNINIT(pScreen, &(srRec->region));
+    xfree(srRec);
 
     REGION_UNINIT(pScreen,&tmpRegion);
 }
@@ -381,16 +540,16 @@ void recursiveSend(cl, x_low, y_low, x_high, y_high)
 {
     int measured_size = measureRegion(cl, x_low, y_low, x_high, y_high);
     rfbLog("RECURSIVE SEND (%d,%d)(%d,%d) -> %d\n", x_low, y_low, x_high, y_high, measured_size);
-    if (measured_size < MTU_SIZE) {
+    if (measured_size < MAX_UPDATE_SIZE) {
         rfbLog("  recursiveSend: %d < %d for (%d,%d)(%d,%d)\n",
-            measured_size, MTU_SIZE, x_low, y_low, x_high, y_high);
+            measured_size, MAX_UPDATE_SIZE, x_low, y_low, x_high, y_high);
         sendRegion(cl, x_low, y_low, x_high, y_high);
         return;
     }
-    int region_count = (measured_size / MTU_SIZE) + 1;
+    int region_count = (measured_size / MAX_UPDATE_SIZE) + 1;
     rfbLog("  ================\n");
     rfbLog("  recursiveSend: %d > %d for (%d,%d)(%d,%d) region_count=%d\n",
-        measured_size, MTU_SIZE, x_low, y_low, x_high, y_high, region_count);
+        measured_size, MAX_UPDATE_SIZE, x_low, y_low, x_high, y_high, region_count);
 
     if (region_count > 8) {
     	region_count = 8;
@@ -403,14 +562,14 @@ void recursiveSend(cl, x_low, y_low, x_high, y_high)
     	int x_width = (x_high - x_low) / region_count;
     	for (i = 0; i < region_count; i++) {
     		recursiveSend(cl, x_low + (i*x_width),
-    				y_low, x_low + ((i + 1)*x_width) + 1, y_high);
+    				y_low, x_low + ((i + 1)*x_width), y_high);
     	}
     } else {
     	/* Split on y. */
         int y_width = (y_high - y_low) / region_count;
         for (i = 0; i < region_count; i++) {
             recursiveSend(cl, x_low, y_low + (i*y_width),
-            		x_high, y_low + ((i + 1)*y_width) + 1);
+            		x_high, y_low + ((i + 1)*y_width));
         }
     }
 }
@@ -422,12 +581,9 @@ rfbServerPushClient(cl)
     if (FB_UPDATE_PENDING(cl)) {
 
         static unsigned long last_update;
-        unsigned long now;
+        unsigned long now = GetTimeInMillis();
 
-        now = GetTimeInMillis();
-
-        const unsigned long push_interval = 250;
-        if (now - last_update > push_interval) {
+        if (now - last_update > serverPushInterval) {
             if (!canSend) {
                 return;
             }
@@ -958,7 +1114,6 @@ rfbProcessClientNormalMessage(cl)
 
     case rfbFramebufferUpdateRequest:
     {
-        canSend = TRUE;
 	RegionRec tmpRegion;
 	BoxRec box;
 
@@ -976,6 +1131,8 @@ rfbProcessClientNormalMessage(cl)
 
         static int send_count = 0;
         if (send_count++ > 10) {
+        	canSend = TRUE;
+        	/* Switch to server push mode */
             return;
         }
         rfbLog("vv Sending from here, count=%d\n", send_count);
@@ -1008,7 +1165,7 @@ rfbProcessClientNormalMessage(cl)
 	}
 
 	if (FB_UPDATE_PENDING(cl)) {
-	    rfbSendFramebufferUpdate(cl);
+	    rfbSendFramebufferUpdate(cl, NULL, 0xFFFFFFFF);
 	}
 
 	REGION_UNINIT(pScreen,&tmpRegion);
@@ -1104,6 +1261,20 @@ rfbProcessClientNormalMessage(cl)
 	xfree(str);
 	return;
 
+    case rfbFramebufferUpdateAck:
+
+    	if ((n = ReadExact(cl->sock, ((char *)&msg) + 1,
+    			   sz_rfbFramebufferUpdateAckMsg - 1)) <= 0) {
+    	    if (n != 0)
+    		rfbLogPerror("rfbProcessClientNormalMessage: read");
+    	    rfbCloseSock(cl->sock);
+    	    return;
+    	}
+
+    	msg.fua.seqNum = Swap32IfLE(msg.fua.seqNum);
+    	rfbLog("acked seqNum = %lu\n", msg.fua.seqNum);
+
+    	return;
 
     default:
 
@@ -1123,8 +1294,10 @@ rfbProcessClientNormalMessage(cl)
  */
 
 Bool
-rfbSendFramebufferUpdate(cl)
+rfbSendFramebufferUpdate(cl, theRegionPtr, seqNum)
     rfbClientPtr cl;
+    RegionRec * theRegionPtr;
+    CARD32 seqNum;
 {
     ScreenPtr pScreen = screenInfo.screens[0];
     int i;
@@ -1178,6 +1351,8 @@ rfbSendFramebufferUpdate(cl)
 		 &cl->modifiedRegion);
     REGION_INTERSECT(pScreen, &updateRegion, &cl->requestedRegion,
 		     &updateRegion);
+
+    if (theRegionPtr != NULL) REGION_COPY(pScreen, theRegionPtr, &updateRegion);
 
     if ( !REGION_NOTEMPTY(pScreen,&updateRegion) &&
 	 !sendCursorShape && !sendCursorPos ) {
@@ -1283,6 +1458,9 @@ rfbSendFramebufferUpdate(cl)
     }
 
     fu->type = rfbFramebufferUpdate;
+
+    fu->seqNum = Swap32IfLE(seqNum);
+
     if (nUpdateRegionRects != 0xFFFF) {
 	fu->nRects = Swap16IfLE(REGION_NUM_RECTS(&updateCopyRegion) +
 				nUpdateRegionRects +
@@ -1605,8 +1783,8 @@ rfbSendUpdateBuf(cl)
     */
 
     if (cl->useUdp) {
-        if (ublen > MTU_SIZE) {
-            rfbLog("Tried to send %d bytes over UDP, but too large! Killing the client. MTU=%d\n", ublen, MTU_SIZE);
+        if (ublen > MAX_UPDATE_SIZE) {
+            rfbLog("Tried to send %d bytes over UDP, but too large! Killing the client. MaxUpdateSize=%d\n", ublen, MAX_UPDATE_SIZE);
             rfbCloseSock(cl->sock);
             return FALSE;
         }

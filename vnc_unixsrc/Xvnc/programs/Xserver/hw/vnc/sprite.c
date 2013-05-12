@@ -1913,7 +1913,7 @@ rfbSpriteSetCursor (pScreen, pCursor, x, y)
 	    /* cursorIsDrawn is guaranteed to be FALSE here, so we definitely
 	       want to send a screen update to the client, even if that's only
 	       putting up the cursor */
-	    rfbSendFramebufferUpdate(cl);
+	    rfbSendFramebufferUpdate(cl, NULL, 0xFFFFFFFF);
 	}
     }
 }
@@ -2044,7 +2044,7 @@ rfbDisplayCursor(pScreen, pCursor)
 	    cl->cursorWasChanged = TRUE;
 	    if ( !cl->deferredUpdateScheduled &&
 		 REGION_NOTEMPTY(pScreen,&cl->requestedRegion) ) {
-		rfbSendFramebufferUpdate(cl);
+		rfbSendFramebufferUpdate(cl, NULL, 0xFFFFFFFF);
 	    }
 	}
     }

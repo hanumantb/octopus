@@ -478,7 +478,7 @@ extern void rfbClientConnectionGone(int sock);
 extern void rfbProcessClientMessage(int sock);
 extern void rfbNewUDPConnection(int sock);
 extern void rfbProcessUDPInput(int sock);
-extern Bool rfbSendFramebufferUpdate(rfbClientPtr cl);
+extern Bool rfbSendFramebufferUpdate(rfbClientPtr cl, RegionRec * theRegionPtr, CARD32 seqNum);
 extern Bool rfbSendRectEncodingRaw(rfbClientPtr cl, int x,int y,int w,int h);
 extern Bool rfbSendUpdateBuf(rfbClientPtr cl);
 extern Bool rfbSendSetColourMapEntries(rfbClientPtr cl, int firstColour,
