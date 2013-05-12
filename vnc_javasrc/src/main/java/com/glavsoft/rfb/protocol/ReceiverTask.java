@@ -30,6 +30,7 @@ import com.glavsoft.exceptions.ProtocolException;
 import com.glavsoft.exceptions.TransportException;
 import com.glavsoft.rfb.ClipboardController;
 import com.glavsoft.rfb.IRepaintController;
+import com.glavsoft.rfb.client.FramebufferUpdateAckMessage;
 import com.glavsoft.rfb.client.FramebufferUpdateRequestMessage;
 import com.glavsoft.rfb.client.SetPixelFormatMessage;
 import com.glavsoft.rfb.encoding.EncodingType;
@@ -155,6 +156,10 @@ public class ReceiverTask implements Runnable {
 	public void framebufferUpdateMessage() throws CommonException {
 		reader.readByte(); // padding
 		int numberOfRectangles = reader.readUInt16();
+		
+		long sequenceNumber = reader.readUInt32();
+		boolean sequenceNumberValid = (sequenceNumber < 0xffffffffL);
+		
 		while (numberOfRectangles-- > 0) {
 			FramebufferUpdateRectangle rect = new FramebufferUpdateRectangle();
 			rect.fill(reader);
@@ -182,6 +187,11 @@ public class ReceiverTask implements Runnable {
 			} else
 				throw new CommonException("Unprocessed encoding: " + rect.toString());
 		}
+		
+		if (sequenceNumberValid) {
+			context.sendMessage(new FramebufferUpdateAckMessage((int) sequenceNumber));
+		}
+		
 		synchronized (this) {
 			if (needSendPixelFormat) {
 				needSendPixelFormat = false;
