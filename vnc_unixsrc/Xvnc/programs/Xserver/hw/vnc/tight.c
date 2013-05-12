@@ -174,6 +174,29 @@ static boolean JpegEmptyOutputBuffer(j_compress_ptr cinfo);
 static void JpegTermDestination(j_compress_ptr cinfo);
 static void JpegSetDstManager(j_compress_ptr cinfo);
 
+char compControl(cl)
+    rfbClientPtr cl;
+{
+	if (handleNewFrame == 1) {
+		if (cl->zsActive[0] == TRUE) {
+			deflateReset (&(cl->zsStruct[0]));
+		}
+		if (cl->zsActive[1] == TRUE) {
+			deflateReset (&(cl->zsStruct[1]));
+		}
+		if (cl->zsActive[2] == TRUE) {
+			deflateReset (&(cl->zsStruct[2]));
+		}
+		if (cl->zsActive[3] == TRUE) {
+			deflateReset (&(cl->zsStruct[3]));
+		}
+
+		handleNewFrame = 0;
+		return rfbTightStreamReset;
+	}
+
+	return 0;
+}
 
 /*
  * Tight encoding implementation.
@@ -542,12 +565,12 @@ SendSubrect(cl, x, y, w, h)
     char *fbptr;
     Bool success = FALSE;
 
-    /* Send pending data if there is more than 128 bytes. */
+    /* (DO NOT) Send pending data if there is more than 128 bytes. */
     /*
-    if (ublen > 128) {
-        if (!rfbSendUpdateBuf(cl))
-            return FALSE;
-    }
+		if (ublen > 128) {
+			if (!rfbSendUpdateBuf(cl))
+				return FALSE;
+		}
     */
 
     if (!SendTightHeader(cl, x, y, w, h))
@@ -661,7 +684,7 @@ SendSolidRect(cl)
             return FALSE;
     }
 
-    updateBuf[ublen++] = (char)(rfbTightFill << 4);
+    updateBuf[ublen++] = (char)(rfbTightFill << 4) | compControl(cl);
     memcpy (&updateBuf[ublen], tightBeforeBuf, len);
     ublen += len;
 
@@ -688,7 +711,7 @@ SendMonoRect(cl, w, h)
     dataLen = (w + 7) / 8;
     dataLen *= h;
 
-    updateBuf[ublen++] = (streamId | rfbTightExplicitFilter) << 4;
+    updateBuf[ublen++] = (streamId | rfbTightExplicitFilter) << 4 | compControl(cl);
     updateBuf[ublen++] = rfbTightFilterPalette;
     updateBuf[ublen++] = 1;
 
@@ -750,7 +773,7 @@ SendIndexedRect(cl, w, h)
     }
 
     /* Prepare tight encoding header. */
-    updateBuf[ublen++] = (streamId | rfbTightExplicitFilter) << 4;
+    updateBuf[ublen++] = (streamId | rfbTightExplicitFilter) << 4 | compControl(cl);
     updateBuf[ublen++] = rfbTightFilterPalette;
     updateBuf[ublen++] = (char)(paletteNumColors - 1);
 
@@ -810,7 +833,7 @@ SendFullColorRect(cl, w, h)
             return FALSE;
     }
 
-    updateBuf[ublen++] = 0x00;  /* stream id = 0, no flushing, no filter */
+    updateBuf[ublen++] = 0x00 | compControl(cl);  /* stream id = 0, no flushing, no filter */
     cl->rfbBytesSent[rfbEncodingTight]++;
 
     if (usePixelFormat24) {
@@ -843,7 +866,7 @@ SendGradientRect(cl, w, h)
     if (prevRowBuf == NULL)
         prevRowBuf = (int *)xalloc(2048 * 3 * sizeof(int));
 
-    updateBuf[ublen++] = (streamId | rfbTightExplicitFilter) << 4;
+    updateBuf[ublen++] = (streamId | rfbTightExplicitFilter) << 4 | compControl(cl);
     updateBuf[ublen++] = rfbTightFilterGradient;
     cl->rfbBytesSent[rfbEncodingTight] += 2;
 
@@ -1677,7 +1700,7 @@ SendJpegRect(cl, x, y, w, h, quality)
             return FALSE;
     }
 
-    updateBuf[ublen++] = (char)(rfbTightJpeg << 4);
+    updateBuf[ublen++] = (char)(rfbTightJpeg << 4) | compControl(cl);
     cl->rfbBytesSent[rfbEncodingTight]++;
 
     return SendCompressedData(cl, jpegDstDataLen);

@@ -463,6 +463,7 @@ extern void KbdReleaseAllKeys();
 #define UPDATE_BUF_SIZE 3000000 /* ORIGINAL SIZE IS 30000 */
 extern char updateBuf[UPDATE_BUF_SIZE];
 extern int ublen;
+extern int handleNewFrame;
 
 extern rfbClientPtr rfbClientHead;
 extern rfbClientPtr pointerClient;

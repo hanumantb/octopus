@@ -786,6 +786,8 @@ typedef struct _rfbZlibHeader {
  *
  */
 
+#define rfbTightStreamReset            0x0F
+
 #define rfbTightExplicitFilter         0x04
 #define rfbTightFill                   0x08
 #define rfbTightJpeg                   0x09

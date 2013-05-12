@@ -88,6 +88,8 @@ SendRegionRec * srRecFirst = NULL;
 SendRegionRec * srRecLast = NULL;
 unsigned int srRecCount = 0;
 
+int handleNewFrame = 0;
+
 void srRecFree()
 {
 	SendRegionRec * cur = srRecFirst;
@@ -1502,6 +1504,7 @@ rfbSendFramebufferUpdate(cl, theRegionPtr, seqNum)
 
     REGION_UNINIT(pScreen,&updateCopyRegion);
 
+    handleNewFrame = 1;
     for (i = 0; i < REGION_NUM_RECTS(&updateRegion); i++) {
 	int x = REGION_RECTS(&updateRegion)[i].x1;
 	int y = REGION_RECTS(&updateRegion)[i].y1;
@@ -1550,6 +1553,7 @@ rfbSendFramebufferUpdate(cl, theRegionPtr, seqNum)
 	    break;
 	}
     }
+    handleNewFrame = 0;
 
     REGION_UNINIT(pScreen,&updateRegion);
 
@@ -1557,6 +1561,7 @@ rfbSendFramebufferUpdate(cl, theRegionPtr, seqNum)
 	return FALSE;
 
     rfbLog("Sending at end of rfbSendFramebufferUpdate\n");
+
     if (!rfbSendUpdateBuf(cl))
 	return FALSE;
 
