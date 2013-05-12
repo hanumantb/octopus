@@ -63,6 +63,9 @@ public class ReceiverTask implements Runnable {
 	private final ProtocolContext context;
 	private PixelFormat pixelFormat;
 	private boolean needSendPixelFormat;
+	
+	private long largestSequenceNumber = -1;
+	private static final long MAX_SEQUENCE_NUMBER_REORDERING = 32;
 
 	public ReceiverTask(Reader reader,
 	                    IRepaintController repaintController, ClipboardController clipboardController,
@@ -159,6 +162,10 @@ public class ReceiverTask implements Runnable {
 		
 		long sequenceNumber = reader.readUInt32();
 		boolean sequenceNumberValid = (sequenceNumber < 0xffffffffL);
+		if (sequenceNumberValid) {
+			largestSequenceNumber = Math.max(largestSequenceNumber, sequenceNumber);
+		}
+		boolean updateValid = !(largestSequenceNumber - sequenceNumber > MAX_SEQUENCE_NUMBER_REORDERING);
 		
 		while (numberOfRectangles-- > 0) {
 			FramebufferUpdateRectangle rect = new FramebufferUpdateRectangle();
@@ -168,7 +175,9 @@ public class ReceiverTask implements Runnable {
 			logger.finest(rect.toString() + (0 == numberOfRectangles ? "\n---" : ""));
 			if (decoder != null) {
 				decoder.decode(reader, renderer, rect);
-				repaintController.repaintBitmap(rect);
+				if (updateValid) {
+					repaintController.repaintBitmap(rect);
+				}
 			} else if (rect.getEncodingType() == EncodingType.RICH_CURSOR) {
 				RichCursorDecoder.getInstance().decode(reader, renderer, rect);
 				repaintController.repaintCursor();
@@ -188,7 +197,7 @@ public class ReceiverTask implements Runnable {
 				throw new CommonException("Unprocessed encoding: " + rect.toString());
 		}
 		
-		if (sequenceNumberValid) {
+		if (sequenceNumberValid && updateValid) {
 			context.sendMessage(new FramebufferUpdateAckMessage((int) sequenceNumber));
 		}
 		

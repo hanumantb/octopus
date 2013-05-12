@@ -44,6 +44,6 @@ public class FramebufferUpdateAckMessage implements ClientToServerMessage {
 
 	@Override
 	public String toString() {
-		return "FramebufferUpdateAckMessage: [sequenceNumber: " + sequenceNumber +", text: ...]";
+		return "FramebufferUpdateAckMessage: [sequenceNumber: " + sequenceNumber +"]";
 	}
 }

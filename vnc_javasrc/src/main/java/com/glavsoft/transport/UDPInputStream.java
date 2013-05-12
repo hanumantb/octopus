@@ -105,7 +105,6 @@ public class UDPInputStream extends InputStream {
 		dsock.receive(dpack);
 		packIdx = 0;
 		packSize = dpack.getLength();
-		System.out.println("UDP socket received " + packSize + " bytes");
 	}
 
 	public void mark(int readlimit) {
