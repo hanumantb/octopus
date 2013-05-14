@@ -24,6 +24,11 @@
 
 package com.glavsoft.rfb.protocol;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.util.Date;
+import java.util.logging.Logger;
+
 import com.glavsoft.drawing.Renderer;
 import com.glavsoft.exceptions.CommonException;
 import com.glavsoft.exceptions.ProtocolException;
@@ -40,10 +45,6 @@ import com.glavsoft.rfb.encoding.decoder.DecodersContainer;
 import com.glavsoft.rfb.encoding.decoder.FramebufferUpdateRectangle;
 import com.glavsoft.rfb.encoding.decoder.RichCursorDecoder;
 import com.glavsoft.transport.Reader;
-
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.util.logging.Logger;
 
 public class ReceiverTask implements Runnable {
 	private static final byte FRAMEBUFFER_UPDATE = 0;
@@ -163,7 +164,10 @@ public class ReceiverTask implements Runnable {
 		long sequenceNumber = reader.readUInt32();
 		boolean sequenceNumberValid = (sequenceNumber < 0xffffffffL);
 		if (sequenceNumberValid) {
+			System.out.printf("[P] seqNum %d time %d\n", sequenceNumber, new Date().getTime());
 			largestSequenceNumber = Math.max(largestSequenceNumber, sequenceNumber);
+		} else {
+			System.out.printf("[P] time %d\n", new Date().getTime());
 		}
 		boolean updateValid = !(largestSequenceNumber - sequenceNumber > MAX_SEQUENCE_NUMBER_REORDERING);
 		
