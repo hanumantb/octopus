@@ -82,6 +82,8 @@ CARD32 lastAckSeqNum = 0;
 unsigned long lastAckTime = 0;
 /* Reset compressor variables */
 int handleNewBlock = 0;
+CARD32 frameSeqNumCounter = 0;
+
 /* Size constants */
 #define MAX_UPDATE_SIZE (2 * (1500) - 100)
 #define SCREEN_XMIN (0)
@@ -555,6 +557,7 @@ sendRegion(cl, x_low, y_low, x_high, y_high)
     srRec->prev = NULL;
     srRec->next = NULL;
     RFB_LOG("srRec->time = %lu / srRec->seqNum = %lu, srRec->numBytes = %d\n", srRec->time, srRec->seqNum, srRec->numBytes);
+    rfbLog("[P] seqNum %lu frameSeqNum %lu time %lu\n", srRec->seqNum, frameSeqNumCounter, srRec->time);
 
     srRecAdd(srRec);
 
@@ -685,6 +688,7 @@ rfbServerPushClient(cl)
             srRecSendRegion(&(cl->modifiedRegion));
 
             seqNumCounter++; /* increment for new frame */
+            frameSeqNumCounter++;
             recursiveSend(cl, x_low, y_low, x_high, y_high);
 
             last_update = now;
