@@ -177,7 +177,7 @@ static void JpegSetDstManager(j_compress_ptr cinfo);
 char compControl(cl)
     rfbClientPtr cl;
 {
-	if (handleNewFrame == 1) {
+	if (handleNewBlock == 1) {
 		if (cl->zsActive[0] == TRUE) {
 			deflateReset (&(cl->zsStruct[0]));
 		}
@@ -191,7 +191,7 @@ char compControl(cl)
 			deflateReset (&(cl->zsStruct[3]));
 		}
 
-		handleNewFrame = 0;
+		handleNewBlock = 0;
 		return rfbTightStreamReset;
 	}
 
