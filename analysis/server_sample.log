@@ -1,0 +1,225 @@
+Couldn't open RGB_DB '/usr/X11R6/lib/X11/rgb'
+14/05/13 16:15:52 Xvnc version TightVNC-1.3.10
+14/05/13 16:15:52 Modified by Somak Das and Joshua Ma for 6.829, Spring 2013
+14/05/13 16:15:52 Copyright (C) 2000-2009 TightVNC Group
+14/05/13 16:15:52 Copyright (C) 1999 AT&T Laboratories Cambridge
+14/05/13 16:15:52 All Rights Reserved.
+14/05/13 16:15:52 See http://www.tightvnc.com/ for information on TightVNC
+14/05/13 16:15:52 Desktop name 'X' (godzilla:1)
+14/05/13 16:15:52 Protocol versions supported: 3.3, 3.7, 3.8, 3.7t, 3.8t
+14/05/13 16:15:52 Listening for VNC connections on TCP port 5901
+14/05/13 16:15:52 Creating UDP socket for pushing out data
+14/05/13 16:15:52 Listening for HTTP connections on TCP port 5801
+14/05/13 16:15:52   URL http://godzilla:5801
+Xlib:  extension "RANDR" missing on display ":1".
+mate-session[43771]: WARNING: GSIdleMonitor: IDLETIME counter not found
+MATE_KEYRING_CONTROL=/tmp/keyring-9gX0oI
+GPG_AGENT_INFO=/tmp/keyring-9gX0oI/gpg:0:1
+MATE_KEYRING_PID=43792
+Xlib:  extension "RANDR" missing on display ":1".
+MATE_KEYRING_CONTROL=/tmp/keyring-9gX0oI
+GPG_AGENT_INFO=/tmp/keyring-9gX0oI/gpg:0:1
+MATE_KEYRING_CONTROL=/tmp/keyring-9gX0oI
+GPG_AGENT_INFO=/tmp/keyring-9gX0oI/gpg:0:1
+MATE_KEYRING_CONTROL=/tmp/keyring-9gX0oI
+GPG_AGENT_INFO=/tmp/keyring-9gX0oI/gpg:0:1
+SSH_AUTH_SOCK=/tmp/keyring-9gX0oI/ssh
+
+** (mate-settings-daemon:43798): WARNING **: Unable to start xrandr manager: RANDR extension is not present
+
+** (mate-settings-daemon:43798): WARNING **: Neither XKeyboard not Xfree86's keyboard extensions are available,
+no way to support keyboard autorepeat rate settings
+
+** (mate-settings-daemon:43798): WARNING **: XKB extension not available
+
+** (mate-settings-daemon:43798): WARNING **: Neither XKeyboard not Xfree86's keyboard extensions are available,
+no way to support keyboard autorepeat rate settings
+Xlib:  extension "XInputExtension" missing on display ":1".
+Xlib:  extension "XInputExtension" missing on display ":1".
+Xlib:  extension "XInputExtension" missing on display ":1".
+Xlib:  extension "XInputExtension" missing on display ":1".
+Xlib:  extension "XInputExtension" missing on display ":1".
+Xlib:  extension "XInputExtension" missing on display ":1".
+Xlib:  extension "XInputExtension" missing on display ":1".
+Xlib:  extension "XInputExtension" missing on display ":1".
+Xlib:  extension "RANDR" missing on display ":1".
+Window manager warning: Log level 32: could not find XKB extension.
+Xlib:  extension "RANDR" missing on display ":1".
+Xlib:  extension "RANDR" missing on display ":1".
+access control disabled, clients can connect from any host
+Xlib:  extension "RANDR" missing on display ":1".
+Xlib:  extension "RANDR" missing on display ":1".
+Xlib:  extension "RANDR" missing on display ":1".
+** Message: adding killswitch idx 0 state KILLSWITCH_STATE_UNBLOCKED
+** Message: killswitch 0 is KILLSWITCH_STATE_UNBLOCKED
+** Message: killswitches state KILLSWITCH_STATE_UNBLOCKED
+Failure: Module initialization failed
+Xlib:  extension "RANDR" missing on display ":1".
+Xlib:  extension "RANDR" missing on display ":1".
+** Message: killswitch 0 is KILLSWITCH_STATE_UNBLOCKED
+** Message: killswitches state KILLSWITCH_STATE_UNBLOCKED
+vmware-user: could not open /proc/fs/vmblock/dev
+Xlib:  extension "RANDR" missing on display ":1".
+XKB extension not present on :1
+To link this computer to a dropbox account, visit the following url:
+https://www.dropbox.com/cli_link?host_id=3993a5c45679ae88ec2901973b653acc
+Xlib:  extension "RANDR" missing on display ":1".
+Xlib:  extension "RANDR" missing on display ":1".
+Xlib:  extension "RANDR" missing on display ":1".
+Xlib:  extension "RANDR" missing on display ":1".
+Xlib:  extension "RANDR" missing on display ":1".
+Agent registration failed: Already Exists
+Xlib:  extension "RANDR" missing on display ":1".
+
+** (mate-power-manager:43875): WARNING **: No idle counter.
+The program 'mate-power-manager' received an X Window System error.
+This probably reflects a bug in the program.
+The error was 'XSyncBadCounter'.
+  (Details: serial 105 error_code 129 request_code 133 minor_code 5)
+  (Note to programmers: normally, X errors are reported asynchronously;
+   that is, you will receive the error a while after causing it.
+   To debug your program, run it with the --sync command line
+   option to change this behavior. You can then get a meaningful
+   backtrace from your debugger if you break on the gdk_x_error() function.)
+Xlib:  extension "RANDR" missing on display ":1".
+Another mintUpdate is already running, exiting.
+** Message: Initializing gksu extension...
+Initializing caja-open-terminal extension
+** Message: applet now removed from the notification area
+** Message: using fallback from indicator to GtkStatusIcon
+** Message: applet now embedded in the notification area
+Xlib:  extension "RANDR" missing on display ":1".
+Xlib:  extension "VMWARE_CTRL" missing on display ":1".
+Xlib:  extension "RANDR" missing on display ":1".
+
+14/05/13 16:15:58 Got connection from client 18.189.100.155
+14/05/13 16:15:58 Enabling TightVNC protocol extensions
+14/05/13 16:16:00 Full-control authentication passed by 18.189.100.155
+14/05/13 16:16:01 Pixel format for client 18.189.100.155:
+14/05/13 16:16:01   32 bpp, depth 24, little endian
+14/05/13 16:16:01   true colour: max r 255 g 255 b 255, shift r 16 g 8 b 0
+14/05/13 16:16:01   no translation needed
+14/05/13 16:16:03 [P] seqNum 1 frameSeqNum 1 time 2762963349
+14/05/13 16:16:03 [P] seqNum 2 frameSeqNum 1 time 2762963349
+14/05/13 16:16:03 [P] seqNum 3 frameSeqNum 1 time 2762963350
+14/05/13 16:16:03 [P] seqNum 4 frameSeqNum 1 time 2762963351
+14/05/13 16:16:03 [P] seqNum 5 frameSeqNum 1 time 2762963352
+14/05/13 16:16:03 [P] seqNum 6 frameSeqNum 1 time 2762963352
+14/05/13 16:16:03 [P] seqNum 7 frameSeqNum 1 time 2762963353
+14/05/13 16:16:03 [P] seqNum 8 frameSeqNum 1 time 2762963353
+14/05/13 16:16:03 [P] seqNum 10 frameSeqNum 2 time 2762963419
+14/05/13 16:16:04 [P] seqNum 12 frameSeqNum 3 time 2762963881
+14/05/13 16:16:04 [P] seqNum 14 frameSeqNum 4 time 2762964066
+14/05/13 16:16:04 [P] seqNum 16 frameSeqNum 5 time 2762964238
+14/05/13 16:16:04 [P] seqNum 18 frameSeqNum 6 time 2762964337
+14/05/13 16:16:04 [P] seqNum 20 frameSeqNum 7 time 2762964810
+14/05/13 16:16:05 [P] seqNum 22 frameSeqNum 8 time 2762965411
+14/05/13 16:16:05 [P] seqNum 24 frameSeqNum 9 time 2762965515
+14/05/13 16:16:05 [P] seqNum 26 frameSeqNum 10 time 2762965708
+14/05/13 16:16:06 [P] seqNum 28 frameSeqNum 11 time 2762966028
+14/05/13 16:16:06 [P] seqNum 30 frameSeqNum 12 time 2762966342
+14/05/13 16:16:06 [P] seqNum 32 frameSeqNum 13 time 2762966653
+14/05/13 16:16:07 [P] seqNum 34 frameSeqNum 14 time 2762966932
+14/05/13 16:16:07 [P] seqNum 36 frameSeqNum 15 time 2762966986
+14/05/13 16:16:07 KbdAddEvent: unknown KeySym 0x3 - allocating KeyCode 89
+14/05/13 16:16:07 [P] seqNum 38 frameSeqNum 16 time 2762967104
+14/05/13 16:16:07 [P] seqNum 40 frameSeqNum 17 time 2762967234
+14/05/13 16:16:07 [P] seqNum 42 frameSeqNum 18 time 2762967310
+14/05/13 16:16:07 [P] seqNum 44 frameSeqNum 19 time 2762967454
+14/05/13 16:16:07 [P] seqNum 46 frameSeqNum 20 time 2762967589
+14/05/13 16:16:07 [P] seqNum 48 frameSeqNum 21 time 2762967718
+14/05/13 16:16:07 [P] seqNum 49 frameSeqNum 21 time 2762967721
+14/05/13 16:16:07 [P] seqNum 50 frameSeqNum 21 time 2762967722
+14/05/13 16:16:07 [P] seqNum 52 frameSeqNum 22 time 2762967783
+14/05/13 16:16:08 [P] seqNum 54 frameSeqNum 23 time 2762967884
+14/05/13 16:16:08 [P] seqNum 55 frameSeqNum 23 time 2762967886
+14/05/13 16:16:08 [P] seqNum 56 frameSeqNum 23 time 2762967887
+14/05/13 16:16:08 [P] seqNum 57 frameSeqNum 23 time 2762967889
+14/05/13 16:16:08 [P] seqNum 58 frameSeqNum 23 time 2762967890
+14/05/13 16:16:08 [P] seqNum 59 frameSeqNum 23 time 2762967892
+14/05/13 16:16:08 [P] seqNum 60 frameSeqNum 23 time 2762967893
+14/05/13 16:16:08 [P] seqNum 61 frameSeqNum 23 time 2762967894
+14/05/13 16:16:08 [P] seqNum 62 frameSeqNum 23 time 2762967896
+14/05/13 16:16:08 [P] seqNum 63 frameSeqNum 23 time 2762967897
+14/05/13 16:16:08 [P] seqNum 64 frameSeqNum 23 time 2762967898
+14/05/13 16:16:08 [P] seqNum 65 frameSeqNum 23 time 2762967899
+14/05/13 16:16:08 [P] seqNum 66 frameSeqNum 23 time 2762967900
+14/05/13 16:16:08 [P] seqNum 67 frameSeqNum 23 time 2762967902
+14/05/13 16:16:08 [P] seqNum 68 frameSeqNum 23 time 2762967903
+14/05/13 16:16:08 [P] seqNum 69 frameSeqNum 23 time 2762967903
+14/05/13 16:16:08 [P] seqNum 70 frameSeqNum 23 time 2762967904
+14/05/13 16:16:08 [P] seqNum 71 frameSeqNum 23 time 2762967904
+14/05/13 16:16:08 [P] seqNum 72 frameSeqNum 23 time 2762967905
+14/05/13 16:16:08 [P] seqNum 73 frameSeqNum 23 time 2762967906
+14/05/13 16:16:08 [P] seqNum 74 frameSeqNum 23 time 2762967906
+14/05/13 16:16:08 [P] seqNum 75 frameSeqNum 23 time 2762967907
+14/05/13 16:16:08 [P] seqNum 76 frameSeqNum 23 time 2762967908
+14/05/13 16:16:08 [P] seqNum 77 frameSeqNum 23 time 2762967910
+14/05/13 16:16:08 [P] seqNum 78 frameSeqNum 23 time 2762967910
+14/05/13 16:16:08 [P] seqNum 79 frameSeqNum 23 time 2762967911
+14/05/13 16:16:08 [P] seqNum 80 frameSeqNum 23 time 2762967911
+14/05/13 16:16:08 [P] seqNum 81 frameSeqNum 23 time 2762967912
+14/05/13 16:16:08 [P] seqNum 82 frameSeqNum 23 time 2762967912
+14/05/13 16:16:08 [P] seqNum 83 frameSeqNum 23 time 2762967914
+14/05/13 16:16:08 [P] seqNum 84 frameSeqNum 23 time 2762967915
+14/05/13 16:16:08 [P] seqNum 85 frameSeqNum 23 time 2762967916
+14/05/13 16:16:08 [P] seqNum 86 frameSeqNum 23 time 2762967917
+14/05/13 16:16:08 [P] seqNum 88 frameSeqNum 24 time 2762967936
+14/05/13 16:16:09 [P] seqNum 90 frameSeqNum 25 time 2762969336
+14/05/13 16:16:09 [P] seqNum 91 frameSeqNum 25 time 2762969336
+14/05/13 16:16:09 [P] seqNum 92 frameSeqNum 25 time 2762969337
+14/05/13 16:16:09 [P] seqNum 93 frameSeqNum 25 time 2762969338
+14/05/13 16:16:09 [P] seqNum 95 frameSeqNum 26 time 2762969429
+14/05/13 16:16:10 [P] seqNum 97 frameSeqNum 27 time 2762970171
+14/05/13 16:16:10 [P] seqNum 99 frameSeqNum 28 time 2762970215
+14/05/13 16:16:10 [P] seqNum 100 frameSeqNum 28 time 2762970216
+14/05/13 16:16:10 [P] seqNum 101 frameSeqNum 28 time 2762970217
+14/05/13 16:16:10 [P] seqNum 102 frameSeqNum 28 time 2762970218
+14/05/13 16:16:10 [P] seqNum 103 frameSeqNum 28 time 2762970218
+14/05/13 16:16:10 [P] seqNum 105 frameSeqNum 29 time 2762970362
+14/05/13 16:16:10 [P] seqNum 106 frameSeqNum 29 time 2762970363
+14/05/13 16:16:10 [P] seqNum 107 frameSeqNum 29 time 2762970363
+14/05/13 16:16:10 [P] seqNum 108 frameSeqNum 29 time 2762970365
+14/05/13 16:16:10 [P] seqNum 109 frameSeqNum 29 time 2762970365
+14/05/13 16:16:10 [P] seqNum 110 frameSeqNum 29 time 2762970366
+14/05/13 16:16:10 [P] seqNum 111 frameSeqNum 29 time 2762970366
+14/05/13 16:16:10 [P] seqNum 112 frameSeqNum 29 time 2762970366
+14/05/13 16:16:10 [P] seqNum 113 frameSeqNum 29 time 2762970367
+14/05/13 16:16:10 [P] seqNum 114 frameSeqNum 29 time 2762970368
+14/05/13 16:16:10 [P] seqNum 115 frameSeqNum 29 time 2762970369
+14/05/13 16:16:10 [P] seqNum 116 frameSeqNum 29 time 2762970369
+14/05/13 16:16:10 [P] seqNum 117 frameSeqNum 29 time 2762970370
+14/05/13 16:16:10 [P] seqNum 118 frameSeqNum 29 time 2762970371
+14/05/13 16:16:10 [P] seqNum 119 frameSeqNum 29 time 2762970372
+14/05/13 16:16:10 [P] seqNum 121 frameSeqNum 30 time 2762970419
+14/05/13 16:16:10 [P] seqNum 123 frameSeqNum 31 time 2762970683
+14/05/13 16:16:10 [P] seqNum 125 frameSeqNum 32 time 2762970784
+14/05/13 16:16:11 [P] seqNum 127 frameSeqNum 33 time 2762971385
+14/05/13 16:16:12 [P] seqNum 129 frameSeqNum 34 time 2762971986
+14/05/13 16:16:12 Statistics:
+14/05/13 16:16:12   key events received 41, pointer events 52
+14/05/13 16:16:12   framebuffer updates 101, rectangles 459, bytes 551778
+14/05/13 16:16:12     cursor shape updates 11, bytes 5188
+14/05/13 16:16:12     cursor position updates 1, bytes 12
+14/05/13 16:16:12     tight rectangles 447, bytes 546578
+14/05/13 16:16:12   raw bytes equivalent 22979520, compression ratio 42.042526
+mate-session: Fatal IO error 11 (Resource temporarily unavailable) on X server :1.
+mate-settings-daemon: Fatal IO error 11 (Resource temporarily unavailable) on X server :1.
+Window manager warning: Fatal IO error 11 (Resource temporarily unavailable) on display ':1'.
+mate-panel: Fatal IO error 11 (Resource temporarily unavailable) on X server :1.
+mate-volume-control-applet: Fatal IO error 11 (Resource temporarily unavailable) on X server :1.
+mate-screensaver: Fatal IO error 11 (Resource temporarily unavailable) on X server :1.
+mate-bluetooth-applet: Fatal IO error 11 (Resource temporarily unavailable) on X server :1.
+polkit-mate-authentication-agent-1: Fatal IO error 11 (Resource temporarily unavailable) on X server :1.
+
+(nm-applet:43887): Gdk-WARNING **: nm-applet: Fatal IO error 11 (Resource temporarily unavailable) on X server :1.
+
+applet.py: Fatal IO error 11 (Resource temporarily unavailable) on X server :1.
+mate-terminal: Fatal IO error 11 (Resource temporarily unavailable) on X server :1.
+caja: Fatal IO error 11 (Resource temporarily unavailable) on X server :1.
+xrdb: Connection reset by peer
+xrdb: Can't open display ':1'
+xsetroot:  unable to open display ':1'
+/home/joshma/.vnc/xstartup: 12: /home/joshma/.vnc/xstartup: vncconfig: not found
+x-window-manager:  unable to open display ":1"
+Failed to parse arguments: Unknown option -geometry
