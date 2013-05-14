@@ -65,26 +65,29 @@ static void rfbProcessClientNormalMessage(rfbClientPtr cl);
 static Bool rfbSendCopyRegion(rfbClientPtr cl, RegionPtr reg, int dx, int dy);
 static Bool rfbSendLastRectMarker(rfbClientPtr cl);
 
-#define MAX_UPDATE_SIZE (2 * (1500) - 100)
-#define SCREEN_XMIN (0)
-#define SCREEN_XMAX (1024)
-#define SCREEN_YMIN (0)
-#define SCREEN_YMAX (768)
-
+/* Timing variables */
 unsigned long serverPushInterval = 66; /* initial: 15 fps */
-const unsigned long tickInterval = 66;
 unsigned long retransmitTimeout = 25;
 double srtt = 0.0;
 double rttvar = 0.0;
-
+/* Throughout variables */
+const unsigned long tickInterval = 66;
 int tickSentBytes = 0;
 double sendingThroughput = 0.0;
 double receivingThroughput = 100000.0;
 unsigned long lastChange = 0;
-
+/* Sequence number variables */
 CARD32 seqNumCounter = 0;
 CARD32 lastAckSeqNum = 0;
 unsigned long lastAckTime = 0;
+/* Reset compressor variables */
+int handleNewBlock = 0;
+/* Size constants */
+#define MAX_UPDATE_SIZE (2 * (1500) - 100)
+#define SCREEN_XMIN (0)
+#define SCREEN_XMAX (660)
+#define SCREEN_YMIN (0)
+#define SCREEN_YMAX (668)
 
 typedef struct SendRegionRec {
 	CARD32 seqNum;
@@ -96,11 +99,10 @@ typedef struct SendRegionRec {
 	struct SendRegionRec * next;
 } SendRegionRec;
 
+/* srRec (unacked queue) variables */
 SendRegionRec * srRecFirst = NULL;
 SendRegionRec * srRecLast = NULL;
 unsigned int srRecCount = 0;
-
-int handleNewBlock = 0;
 
 void srRecFree()
 {
@@ -288,8 +290,10 @@ rfbNewClient(sock, udpSock)
     int sock;
     int udpSock;
 {
-    srRecFree();
-    seqNumCounter = 0; /* Reset sequence number for new client */
+    /* srRecFree();
+     * seqNumCounter = 0; // Reset sequence number for new client */
+
+    static int clientNumber = 0;
 
     rfbProtocolVersionMsg pv;
     rfbClientPtr cl;
@@ -310,6 +314,13 @@ rfbNewClient(sock, udpSock)
     }
 
     cl = (rfbClientPtr)xalloc(sizeof(rfbClientRec));
+
+    if (clientNumber == 0) {
+    	cl->isOctopus = TRUE;
+    } else {
+    	cl->isOctopus = FALSE;
+    }
+    clientNumber++;
 
     cl->measuring = FALSE;
     cl->udpSock = udpSock;
@@ -613,7 +624,7 @@ rfbServerPushClient(cl)
 		tickSentBytes = 0;
 
 		/* Linearly map quality to percentage. 1 -> 0%, 5 -> 100% */
-		double qualityPercentage = (cl->tightQualityLevel - 1.0) / (5.0 - 1.0);
+		double qualityPercentage = (cl->tightQualityLevel - 3.0) / (3.0 - 1.0);
 		/* Linearly map interval to percentage. 1000 -> 0%, 42 -> 100% */
 		double intervalPercentage = (1000.0 - serverPushInterval) / (1000.0 - 42.0);
 
@@ -637,8 +648,8 @@ rfbServerPushClient(cl)
 			if (now - lastChange > 20 * tickInterval) {
 				if (qualityPercentage <= intervalPercentage) {
 					cl->tightQualityLevel++;
-					if (cl->tightQualityLevel > 5) {
-						cl->tightQualityLevel = 5;
+					if (cl->tightQualityLevel > 3) {
+						cl->tightQualityLevel = 3;
 					}
 				} else {
 					serverPushInterval -= 5;
@@ -695,7 +706,9 @@ rfbServerPush()
     /* Go through all clients. */
     rfbClientPtr cl;
     for (cl = rfbClientHead; cl; cl = cl->next) {
-        rfbServerPushClient(cl);
+    	if (cl->isOctopus == TRUE) {
+    		rfbServerPushClient(cl);
+    	}
     }
 }
 
@@ -1212,12 +1225,15 @@ rfbProcessClientNormalMessage(cl)
 	}
 
         static int send_count = 0;
-        if (send_count++ > 10) {
-        	canSend = TRUE;
-        	/* Switch to server push mode */
-            return;
+        if (cl->isOctopus) {
+        	send_count++;
+        	if (send_count > 10) {
+				canSend = TRUE;
+				/* Switch to server push mode */
+				return;
+			}
+        	RFB_LOG("vv Sending from here, count=%d\n", send_count);
         }
-        RFB_LOG("vv Sending from here, count=%d\n", send_count);
 
 	box.x1 = Swap16IfLE(msg.fur.x);
 	box.y1 = Swap16IfLE(msg.fur.y);

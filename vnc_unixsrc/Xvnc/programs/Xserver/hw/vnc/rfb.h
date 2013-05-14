@@ -134,6 +134,7 @@ typedef struct rfbClientRec {
     Bool measuring;
     int udpSock;
     Bool useUdp;
+    Bool isOctopus;
     /* END CUSTOM FIELDS */
 
     int sock;
