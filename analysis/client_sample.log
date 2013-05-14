@@ -20,16 +20,16 @@ May 14, 2013 4:16:05 PM com.glavsoft.rfb.protocol.state.SecurityTypeState negoti
 INFO: Security Type accepted: TIGHT_AUTHENTICATION
 May 14, 2013 4:16:05 PM com.glavsoft.rfb.protocol.auth.TightAuthentication initAuthorization
 INFO: Auth capability accepted: VNC_AUTHENTICATION
-[P] time 1368562567828
-[P] time 1368562567945
-[P] time 1368562568362
-[P] time 1368562569092
-[P] time 1368562569304
-[P] time 1368562569351
-[P] time 1368562569627
-[P] time 1368562569904
-[P] time 1368562569992
-[P] time 1368562570126
+[P] seqNum 4294967295 time 1368562567828
+[P] seqNum 4294967295 time 1368562567945
+[P] seqNum 4294967295 time 1368562568362
+[P] seqNum 4294967295 time 1368562569092
+[P] seqNum 4294967295 time 1368562569304
+[P] seqNum 4294967295 time 1368562569351
+[P] seqNum 4294967295 time 1368562569627
+[P] seqNum 4294967295 time 1368562569904
+[P] seqNum 4294967295 time 1368562569992
+[P] seqNum 4294967295 time 1368562570126
 [P] seqNum 1 time 1368562570255
 [P] seqNum 2 time 1368562570261
 [P] seqNum 3 time 1368562570265
