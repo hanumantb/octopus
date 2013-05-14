@@ -10,4 +10,7 @@ for line in sys.stdin:
 	frames[frame] = 1
 	end_time = time
 
-print "framerate (fps): %f" % (len(frames) / (float(end_time) / 1000))
+time_seconds = (float(end_time) / 1000)
+
+print "   full framerate (fps): %0.3f" % (len(frames) / time_seconds)
+print "partial framerate (fps): %0.3f" % (sum(frames.values()) / time_seconds)
