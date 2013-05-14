@@ -44,6 +44,8 @@
 #include <vncserverctrl.h>
 #endif
 
+#define RFB_LOG(...)
+
 char updateBuf[UPDATE_BUF_SIZE];
 int ublen;
 
@@ -69,17 +71,25 @@ static Bool rfbSendLastRectMarker(rfbClientPtr cl);
 #define SCREEN_YMIN (0)
 #define SCREEN_YMAX (768)
 
-/* TODO: Fix, currently 15 FPS */
-const unsigned long serverPushInterval = 66;
+unsigned long serverPushInterval = 66; /* initial: 15 fps */
+const unsigned long tickInterval = 66;
 unsigned long retransmitTimeout = 25;
 double srtt = 0.0;
 double rttvar = 0.0;
 
+int tickSentBytes = 0;
+double sendingThroughput = 0.0;
+double receivingThroughput = 100000.0;
+unsigned long lastChange = 0;
+
 CARD32 seqNumCounter = 0;
+CARD32 lastAckSeqNum = 0;
+unsigned long lastAckTime = 0;
 
 typedef struct SendRegionRec {
 	CARD32 seqNum;
 	unsigned long time;
+	int numBytes;
 	RegionRec region;
 
 	struct SendRegionRec * prev;
@@ -90,7 +100,7 @@ SendRegionRec * srRecFirst = NULL;
 SendRegionRec * srRecLast = NULL;
 unsigned int srRecCount = 0;
 
-int handleNewFrame = 0;
+int handleNewBlock = 0;
 
 void srRecFree()
 {
@@ -155,8 +165,9 @@ void srRecDelete(srRec)
 	srRecCount--;
 }
 
-unsigned long srRecDeleteSeqNum(seqNum)
+unsigned long srRecDeleteSeqNum(seqNum, numBytes)
 	CARD32 seqNum;
+	int * numBytes;
 {
 	SendRegionRec * cur = srRecFirst;
 	SendRegionRec * next;
@@ -166,6 +177,7 @@ unsigned long srRecDeleteSeqNum(seqNum)
 
 		if (cur->seqNum == seqNum) {
 			unsigned long time = cur->time;
+			*numBytes = cur->numBytes;
 			srRecDelete(cur);
 			return time;
 		}
@@ -173,6 +185,7 @@ unsigned long srRecDeleteSeqNum(seqNum)
 		cur = next;
 	}
 
+	*numBytes = 0;
 	return (unsigned long) 0;
 }
 
@@ -289,7 +302,7 @@ rfbNewClient(sock, udpSock)
 	/* no other clients - make sure we don't think any keys are pressed */
 	KbdReleaseAllKeys();
     } else {
-	rfbLog("  (other clients");
+	RFB_LOG("  (other clients");
 	for (cl = rfbClientHead; cl; cl = cl->next) {
 	    fprintf(stderr," %s",cl->host);
 	}
@@ -390,15 +403,15 @@ rfbClientConnectionGone(sock)
     }
 
     if (!cl) {
-	rfbLog("rfbClientConnectionGone: unknown socket %d\n",sock);
+	RFB_LOG("rfbClientConnectionGone: unknown socket %d\n",sock);
 	return;
     }
 
     if (cl->login != NULL) {
-	rfbLog("Client %s (%s) gone\n", cl->login, cl->host);
+	RFB_LOG("Client %s (%s) gone\n", cl->login, cl->host);
 	free(cl->login);
     } else {
-	rfbLog("Client %s gone\n", cl->host);
+	RFB_LOG("Client %s gone\n", cl->host);
     }
     free(cl->host);
 
@@ -469,9 +482,9 @@ measureRegion(cl, x_low, y_low, x_high, y_high)
         }
     }
 
-    rfbLog("GOING TO SEND TO CLIENT\n");
-    /* rfbLog("  client has %d regions\n", cl->modifiedRegion.data->size); */
-    rfbLog("MEASURING:\n");
+    RFB_LOG("GOING TO SEND TO CLIENT\n");
+    /* RFB_LOG("  client has %d regions\n", cl->modifiedRegion.data->size); */
+    RFB_LOG("MEASURING:\n");
     cl->measuring = TRUE;
     rfbSendFramebufferUpdate(cl, NULL, 0xFFFFFFFF);
     cl->measuring = FALSE;
@@ -522,15 +535,15 @@ sendRegion(cl, x_low, y_low, x_high, y_high)
     REGION_INIT(pScreen, &(srRec->region), NullBox, 0);
     srRec->seqNum = seqNumCounter; seqNumCounter++;
 
-    rfbLog("Sending to client region %d -> %d, sent_count=%d\n", y_low, y_high, sent_count);
+    RFB_LOG("Sending to client region %d -> %d, sent_count=%d\n", y_low, y_high, sent_count);
     cl->useUdp = TRUE;
-    rfbSendFramebufferUpdate(cl, &(srRec->region), srRec->seqNum);
+    rfbSendFramebufferUpdate_numBytes(cl, &(srRec->region), srRec->seqNum, &(srRec->numBytes));
     cl->useUdp = FALSE;
 
     srRec->time = GetTimeInMillis();
     srRec->prev = NULL;
     srRec->next = NULL;
-    rfbLog("srRec->time = %lu / srRec->seqNum = %lu\n", srRec->time, srRec->seqNum);
+    RFB_LOG("srRec->time = %lu / srRec->seqNum = %lu, srRec->numBytes = %d\n", srRec->time, srRec->seqNum, srRec->numBytes);
 
     srRecAdd(srRec);
 
@@ -545,16 +558,17 @@ void recursiveSend(cl, x_low, y_low, x_high, y_high)
 	int y_high;
 {
     int measured_size = measureRegion(cl, x_low, y_low, x_high, y_high);
-    rfbLog("RECURSIVE SEND (%d,%d)(%d,%d) -> %d\n", x_low, y_low, x_high, y_high, measured_size);
+    RFB_LOG("RECURSIVE SEND (%d,%d)(%d,%d) -> %d\n", x_low, y_low, x_high, y_high, measured_size);
     if (measured_size < MAX_UPDATE_SIZE) {
-        rfbLog("  recursiveSend: %d < %d for (%d,%d)(%d,%d)\n",
+        RFB_LOG("  recursiveSend: %d < %d for (%d,%d)(%d,%d)\n",
             measured_size, MAX_UPDATE_SIZE, x_low, y_low, x_high, y_high);
+        tickSentBytes += measured_size;
         sendRegion(cl, x_low, y_low, x_high, y_high);
         return;
     }
     int region_count = (measured_size / MAX_UPDATE_SIZE) + 1;
-    rfbLog("  ================\n");
-    rfbLog("  recursiveSend: %d > %d for (%d,%d)(%d,%d) region_count=%d\n",
+    RFB_LOG("  ================\n");
+    RFB_LOG("  recursiveSend: %d > %d for (%d,%d)(%d,%d) region_count=%d\n",
         measured_size, MAX_UPDATE_SIZE, x_low, y_low, x_high, y_high, region_count);
 
     if (region_count > 8) {
@@ -584,17 +598,69 @@ void
 rfbServerPushClient(cl)
     rfbClientPtr cl;
 {
+	unsigned long now = GetTimeInMillis();
+	static unsigned long last_check;
+	if (now - last_check > tickInterval) {
+		double t = 1000.0 * tickSentBytes / (now - last_check);
+
+		if (sendingThroughput == 0.0) {
+			sendingThroughput = t;
+		} else {
+			sendingThroughput = 0.75 * sendingThroughput + 0.25 * t;
+		}
+
+		last_check = now;
+		tickSentBytes = 0;
+
+		/* Linearly map quality to percentage. 1 -> 0%, 5 -> 100% */
+		double qualityPercentage = (cl->tightQualityLevel - 1.0) / (5.0 - 1.0);
+		/* Linearly map interval to percentage. 1000 -> 0%, 42 -> 100% */
+		double intervalPercentage = (1000.0 - serverPushInterval) / (1000.0 - 42.0);
+
+		if (sendingThroughput > receivingThroughput) {
+			if (now - lastChange > 20 * tickInterval) {
+				if (qualityPercentage >= intervalPercentage) {
+					cl->tightQualityLevel--;
+					if (cl->tightQualityLevel < 1) {
+						cl->tightQualityLevel = 1;
+					}
+				} else {
+					serverPushInterval += 5;
+					if (serverPushInterval > 1000) {
+						serverPushInterval = 1000;
+					}
+				}
+				RFB_LOG("RAMP DOWN: quality = %d (%f), interval = %d (%f)\n\n", cl->tightQualityLevel, qualityPercentage, serverPushInterval, intervalPercentage);
+				lastChange = now;
+			}
+		} else if (sendingThroughput < 0.9 * receivingThroughput) {
+			if (now - lastChange > 20 * tickInterval) {
+				if (qualityPercentage <= intervalPercentage) {
+					cl->tightQualityLevel++;
+					if (cl->tightQualityLevel > 5) {
+						cl->tightQualityLevel = 5;
+					}
+				} else {
+					serverPushInterval -= 5;
+					if (serverPushInterval < 42) {
+						serverPushInterval = 42;
+					}
+				}
+				RFB_LOG("RAMP UP: quality = %d (%f), interval = %d (%f)\n\n", cl->tightQualityLevel, qualityPercentage, serverPushInterval, intervalPercentage);
+				lastChange = now;
+			}
+		}
+	}
+
     if (FB_UPDATE_PENDING(cl)) {
 
         static unsigned long last_update;
-        unsigned long now = GetTimeInMillis();
-
         if (now - last_update > serverPushInterval) {
-            if (canSend == FALSE) {
+        	if (canSend == FALSE) {
                 return;
             }
-            rfbLog("vvvv\n");
-            rfbLog("rfbServerPush to client %s\n", cl->host);
+            RFB_LOG("vvvv\n");
+            RFB_LOG("rfbServerPush to client %s\n", cl->host);
 
             srRecSetupRetransmit(cl);
 
@@ -603,14 +669,19 @@ rfbServerPushClient(cl)
             int y_low = cl->modifiedRegion.extents.y1;
             int x_high = cl->modifiedRegion.extents.x2;
             int y_high = cl->modifiedRegion.extents.y2;
-            rfbLog("Bounding box is (%d,%d) -> (%d,%d)\n", x_low, y_low, x_high, y_high);
+            RFB_LOG("Bounding box is (%d,%d) -> (%d,%d)\n", x_low, y_low, x_high, y_high);
 
             srRecSendRegion(&(cl->modifiedRegion));
 
+            seqNumCounter++; /* increment for new frame */
             recursiveSend(cl, x_low, y_low, x_high, y_high);
 
             last_update = now;
-            rfbLog("^^^^\n");
+            RFB_LOG("^^^^\n");
+
+			if (sendingThroughput > 0.1) {
+				RFB_LOG("-> sendingThroughput = %f\n", sendingThroughput);
+			}
         }
     }
 }
@@ -644,14 +715,14 @@ rfbProcessClientMessage(sock)
     }
 
     if (!cl) {
-	rfbLog("rfbProcessClientMessage: unknown socket %d\n",sock);
+	RFB_LOG("rfbProcessClientMessage: unknown socket %d\n",sock);
 	rfbCloseSock(sock);
 	return;
     }
 
 #ifdef CORBA
     if (isClosePending(cl)) {
-	rfbLog("Closing connection to client %s\n", cl->host);
+	RFB_LOG("Closing connection to client %s\n", cl->host);
 	rfbCloseSock(sock);
 	return;
     }
@@ -697,7 +768,7 @@ rfbProcessClientProtocolVersion(cl)
 
     if ((n = ReadExact(cl->sock, pv, sz_rfbProtocolVersionMsg)) <= 0) {
 	if (n == 0)
-	    rfbLog("rfbProcessClientProtocolVersion: client gone %s\n");
+	    RFB_LOG("rfbProcessClientProtocolVersion: client gone %s\n");
 	else
 	    rfbLogPerror("rfbProcessClientProtocolVersion: read");
 	rfbCloseSock(cl->sock);
@@ -706,12 +777,12 @@ rfbProcessClientProtocolVersion(cl)
 
     pv[sz_rfbProtocolVersionMsg] = 0;
     if (sscanf(pv,rfbProtocolVersionFormat,&major,&minor) != 2) {
-	rfbLog("rfbProcessClientProtocolVersion: not a valid RFB client\n");
+	RFB_LOG("rfbProcessClientProtocolVersion: not a valid RFB client\n");
 	rfbCloseSock(cl->sock);
 	return;
     }
     if (major != 3) {
-	rfbLog("Unsupported protocol version %d.%d\n", major, minor);
+	RFB_LOG("Unsupported protocol version %d.%d\n", major, minor);
 	rfbCloseSock(cl->sock);
 	return;
     }
@@ -726,10 +797,10 @@ rfbProcessClientProtocolVersion(cl)
 	cl->protocol_minor_ver = 3;
     }
     if (cl->protocol_minor_ver != minor) {
-	rfbLog("Non-standard protocol version 3.%d, using 3.%d instead\n",
+	RFB_LOG("Non-standard protocol version 3.%d, using 3.%d instead\n",
 	       minor, cl->protocol_minor_ver);
     } else {
-	rfbLog("Using protocol version 3.%d\n", cl->protocol_minor_ver);
+	RFB_LOG("Using protocol version 3.%d\n", cl->protocol_minor_ver);
     }
 
     /* TightVNC protocol extensions are not enabled yet. */
@@ -757,7 +828,7 @@ rfbProcessClientInitMessage(cl)
 
     if ((n = ReadExact(cl->sock, (char *)&ci,sz_rfbClientInitMsg)) <= 0) {
 	if (n == 0)
-	    rfbLog("rfbProcessClientInitMessage: client gone\n");
+	    RFB_LOG("rfbProcessClientInitMessage: client gone\n");
 	else
 	    rfbLogPerror("rfbProcessClientInitMessage: read");
 	rfbCloseSock(cl->sock);
@@ -804,8 +875,8 @@ rfbProcessClientInitMessage(cl)
 	if (rfbDontDisconnect) {
 	    for (otherCl = rfbClientHead; otherCl; otherCl = otherCl->next) {
 		if ((otherCl != cl) && (otherCl->state == RFB_NORMAL)) {
-		    rfbLog("-dontdisconnect: Not shared & existing client\n");
-		    rfbLog("  refusing new client %s\n", cl->host);
+		    RFB_LOG("-dontdisconnect: Not shared & existing client\n");
+		    RFB_LOG("  refusing new client %s\n", cl->host);
 		    rfbCloseSock(cl->sock);
 		    return;
 		}
@@ -814,7 +885,7 @@ rfbProcessClientInitMessage(cl)
 	    for (otherCl = rfbClientHead; otherCl; otherCl = nextCl) {
 		nextCl = otherCl->next;
 		if ((otherCl != cl) && (otherCl->state == RFB_NORMAL)) {
-		    rfbLog("Not shared - closing connection to client %s\n",
+		    RFB_LOG("Not shared - closing connection to client %s\n",
 			   otherCl->host);
 		    rfbCloseSock(otherCl->sock);
 		}
@@ -858,7 +929,7 @@ rfbSendInteractionCaps(cl)
     SetCapInfo(&smsg_list[i++], rfbFileUploadCancel,       rfbTightVncVendor);
     SetCapInfo(&smsg_list[i++], rfbFileDownloadFailed,     rfbTightVncVendor);
     if (i != N_SMSG_CAPS) {
-	rfbLog("rfbSendInteractionCaps: assertion failed, i != N_SMSG_CAPS\n");
+	RFB_LOG("rfbSendInteractionCaps: assertion failed, i != N_SMSG_CAPS\n");
 	rfbCloseSock(cl->sock);
 	return;
     }
@@ -874,7 +945,7 @@ rfbSendInteractionCaps(cl)
     SetCapInfo(&cmsg_list[i++], rfbFileDownloadCancel,     rfbTightVncVendor);
     SetCapInfo(&cmsg_list[i++], rfbFileUploadFailed,       rfbTightVncVendor);
     if (i != N_CMSG_CAPS) {
-	rfbLog("rfbSendInteractionCaps: assertion failed, i != N_CMSG_CAPS\n");
+	RFB_LOG("rfbSendInteractionCaps: assertion failed, i != N_CMSG_CAPS\n");
 	rfbCloseSock(cl->sock);
 	return;
     }
@@ -895,7 +966,7 @@ rfbSendInteractionCaps(cl)
     SetCapInfo(&enc_list[i++],  rfbEncodingPointerPos,     rfbTightVncVendor);
     SetCapInfo(&enc_list[i++],  rfbEncodingLastRect,       rfbTightVncVendor);
     if (i != N_ENC_CAPS) {
-	rfbLog("rfbSendInteractionCaps: assertion failed, i != N_ENC_CAPS\n");
+	RFB_LOG("rfbSendInteractionCaps: assertion failed, i != N_ENC_CAPS\n");
 	rfbCloseSock(cl->sock);
 	return;
     }
@@ -972,7 +1043,7 @@ rfbProcessClientNormalMessage(cl)
 	    rfbCloseSock(cl->sock);
 	    return;
 	}
-	rfbLog("rfbProcessClientNormalMessage: %s",
+	RFB_LOG("rfbProcessClientNormalMessage: %s",
 		"FixColourMapEntries unsupported\n");
 	rfbCloseSock(cl->sock);
 	return;
@@ -1018,47 +1089,47 @@ rfbProcessClientNormalMessage(cl)
 	    case rfbEncodingRaw:
 		if (cl->preferredEncoding == -1) {
 		    cl->preferredEncoding = enc;
-		    rfbLog("Using raw encoding for client %s\n",
+		    RFB_LOG("Using raw encoding for client %s\n",
 			   cl->host);
 		}
 		break;
 	    case rfbEncodingRRE:
 		if (cl->preferredEncoding == -1) {
 		    cl->preferredEncoding = enc;
-		    rfbLog("Using rre encoding for client %s\n",
+		    RFB_LOG("Using rre encoding for client %s\n",
 			   cl->host);
 		}
 		break;
 	    case rfbEncodingCoRRE:
 		if (cl->preferredEncoding == -1) {
 		    cl->preferredEncoding = enc;
-		    rfbLog("Using CoRRE encoding for client %s\n",
+		    RFB_LOG("Using CoRRE encoding for client %s\n",
 			   cl->host);
 		}
 		break;
 	    case rfbEncodingHextile:
 		if (cl->preferredEncoding == -1) {
 		    cl->preferredEncoding = enc;
-		    rfbLog("Using hextile encoding for client %s\n",
+		    RFB_LOG("Using hextile encoding for client %s\n",
 			   cl->host);
 		}
 		break;
 	    case rfbEncodingZlib:
 		if (cl->preferredEncoding == -1) {
 		    cl->preferredEncoding = enc;
-		    rfbLog("Using zlib encoding for client %s\n",
+		    RFB_LOG("Using zlib encoding for client %s\n",
 			   cl->host);
 		}
               break;
 	    case rfbEncodingTight:
 		if (cl->preferredEncoding == -1) {
 		    cl->preferredEncoding = enc;
-		    rfbLog("Using tight encoding for client %s\n",
+		    RFB_LOG("Using tight encoding for client %s\n",
 			   cl->host);
 		}
 		break;
 	    case rfbEncodingXCursor:
-		rfbLog("Enabling X-style cursor updates for client %s\n",
+		RFB_LOG("Enabling X-style cursor updates for client %s\n",
 		       cl->host);
 		cl->enableCursorShapeUpdates = TRUE;
 		cl->useRichCursorEncoding = FALSE;
@@ -1066,7 +1137,7 @@ rfbProcessClientNormalMessage(cl)
 		break;
 	    case rfbEncodingRichCursor:
 		if (!cl->enableCursorShapeUpdates) {
-		    rfbLog("Enabling full-color cursor updates for client "
+		    RFB_LOG("Enabling full-color cursor updates for client "
 			   "%s\n", cl->host);
 		    cl->enableCursorShapeUpdates = TRUE;
 		    cl->useRichCursorEncoding = TRUE;
@@ -1075,7 +1146,7 @@ rfbProcessClientNormalMessage(cl)
 		break;
 	    case rfbEncodingPointerPos:
 		if (!cl->enableCursorPosUpdates) {
-		    rfbLog("Enabling cursor position updates for client %s\n",
+		    RFB_LOG("Enabling cursor position updates for client %s\n",
 			   cl->host);
 		    cl->enableCursorPosUpdates = TRUE;
 		    cl->cursorWasMoved = TRUE;
@@ -1085,7 +1156,7 @@ rfbProcessClientNormalMessage(cl)
 	        break;
 	    case rfbEncodingLastRect:
 		if (!cl->enableLastRectEncoding) {
-		    rfbLog("Enabling LastRect protocol extension for client "
+		    RFB_LOG("Enabling LastRect protocol extension for client "
 			   "%s\n", cl->host);
 		    cl->enableLastRectEncoding = TRUE;
 		}
@@ -1095,15 +1166,15 @@ rfbProcessClientNormalMessage(cl)
 		     enc <= (CARD32)rfbEncodingCompressLevel9 ) {
 		    cl->zlibCompressLevel = enc & 0x0F;
 		    cl->tightCompressLevel = enc & 0x0F;
-		    rfbLog("Using compression level %d for client %s\n",
+		    RFB_LOG("Using compression level %d for client %s\n",
 			   cl->tightCompressLevel, cl->host);
 		} else if ( enc >= (CARD32)rfbEncodingQualityLevel0 &&
 			    enc <= (CARD32)rfbEncodingQualityLevel9 ) {
 		    cl->tightQualityLevel = enc & 0x0F;
-		    rfbLog("Using image quality level %d for client %s\n",
+		    RFB_LOG("Using image quality level %d for client %s\n",
 			   cl->tightQualityLevel, cl->host);
 		} else {
-		    rfbLog("rfbProcessClientNormalMessage: ignoring unknown "
+		    RFB_LOG("rfbProcessClientNormalMessage: ignoring unknown "
 			   "encoding %d\n", (int)enc);
 		}
 	    }
@@ -1114,7 +1185,7 @@ rfbProcessClientNormalMessage(cl)
 	}
 
 	if (cl->enableCursorPosUpdates && !cl->enableCursorShapeUpdates) {
-	    rfbLog("Disabling cursor position updates for client %s\n",
+	    RFB_LOG("Disabling cursor position updates for client %s\n",
 		   cl->host);
 	    cl->enableCursorPosUpdates = FALSE;
 	}
@@ -1146,7 +1217,7 @@ rfbProcessClientNormalMessage(cl)
         	/* Switch to server push mode */
             return;
         }
-        rfbLog("vv Sending from here, count=%d\n", send_count);
+        RFB_LOG("vv Sending from here, count=%d\n", send_count);
 
 	box.x1 = Swap16IfLE(msg.fur.x);
 	box.y1 = Swap16IfLE(msg.fur.y);
@@ -1180,7 +1251,7 @@ rfbProcessClientNormalMessage(cl)
 	}
 
 	REGION_UNINIT(pScreen,&tmpRegion);
-        rfbLog("^^ Done sending from here\n");
+        RFB_LOG("^^ Done sending from here\n");
 	return;
     }
 
@@ -1282,8 +1353,9 @@ rfbProcessClientNormalMessage(cl)
     	    return;
     	}
 
-    	msg.fua.seqNum = Swap32IfLE(msg.fua.seqNum);
-    	unsigned long timeSent = srRecDeleteSeqNum(msg.fua.seqNum);
+    	CARD32 seqNum = Swap32IfLE(msg.fua.seqNum);
+    	int numBytes;
+    	unsigned long timeSent = srRecDeleteSeqNum(seqNum, &numBytes);
     	if (timeSent != 0) {
     		unsigned long timeCurrent = GetTimeInMillis();
 
@@ -1301,19 +1373,36 @@ rfbProcessClientNormalMessage(cl)
     			srtt = 0.875 * srtt + 0.125 * r;
     		}
 
-    		retransmitTimeout = (unsigned long) (srtt + 4 * rttvar);
+    		retransmitTimeout = (unsigned long) (srtt + 2 * rttvar);
     		if (retransmitTimeout < 50) {
     			retransmitTimeout = 50;
     		}
+
+    		if (lastAckSeqNum + 1 == seqNum) {
+    			unsigned long diff = timeCurrent - lastAckTime;
+    			if (diff < 1) diff = 1;
+    			double t = 1000.0 * numBytes / diff;
+
+    			if (receivingThroughput == 0.0) {
+    				receivingThroughput = t;
+    			} else {
+    				receivingThroughput = 0.875 * receivingThroughput + 0.125 * t;
+    			}
+
+    			RFB_LOG("-> receivingThroughput = %f, numBytes = %d, time-diff = %lu\n", receivingThroughput, numBytes, diff);
+    		}
+
+    		lastAckSeqNum = seqNum;
+    		lastAckTime = timeCurrent;
     	}
 
     	return;
 
     default:
 
-	rfbLog("rfbProcessClientNormalMessage: unknown message type %d\n",
+	RFB_LOG("rfbProcessClientNormalMessage: unknown message type %d\n",
 		msg.type);
-	rfbLog(" ... closing connection\n");
+	RFB_LOG(" ... closing connection\n");
 	rfbCloseSock(cl->sock);
 	return;
     }
@@ -1331,6 +1420,17 @@ rfbSendFramebufferUpdate(cl, theRegionPtr, seqNum)
     rfbClientPtr cl;
     RegionRec * theRegionPtr;
     CARD32 seqNum;
+{
+    int numBytes;
+	return rfbSendFramebufferUpdate_numBytes(cl, theRegionPtr, seqNum, &numBytes);
+}
+
+Bool
+rfbSendFramebufferUpdate_numBytes(cl, theRegionPtr, seqNum, numBytes)
+    rfbClientPtr cl;
+    RegionRec * theRegionPtr;
+    CARD32 seqNum;
+    int * numBytes;
 {
     ScreenPtr pScreen = screenInfo.screens[0];
     int i;
@@ -1390,7 +1490,7 @@ rfbSendFramebufferUpdate(cl, theRegionPtr, seqNum)
     if ( !REGION_NOTEMPTY(pScreen,&updateRegion) &&
 	 !sendCursorShape && !sendCursorPos ) {
 	REGION_UNINIT(pScreen,&updateRegion);
-        rfbLog("Region is empty, so I'm not sending\n");
+        RFB_LOG("Region is empty, so I'm not sending\n");
 	return TRUE;
     }
 
@@ -1504,19 +1604,19 @@ rfbSendFramebufferUpdate(cl, theRegionPtr, seqNum)
     ublen = sz_rfbFramebufferUpdateMsg;
 
     if (sendCursorShape) {
-        rfbLog("Sending cursor shape \n");
+        RFB_LOG("Sending cursor shape \n");
 	cl->cursorWasChanged = FALSE;
 	if (!rfbSendCursorShape(cl, pScreen))
 	    return FALSE;
-        rfbLog("Done sending cursor shape \n");
+        RFB_LOG("Done sending cursor shape \n");
     }
 
     if (sendCursorPos) {
-        rfbLog("Sending cursor pos \n");
+        RFB_LOG("Sending cursor pos \n");
 	cl->cursorWasMoved = FALSE;
 	if (!rfbSendCursorPos(cl, pScreen))
  	    return FALSE;
-        rfbLog("Done sending cursor pos \n");
+        RFB_LOG("Done sending cursor pos \n");
     }
 
     if (REGION_NOTEMPTY(pScreen,&updateCopyRegion)) {
@@ -1529,7 +1629,7 @@ rfbSendFramebufferUpdate(cl, theRegionPtr, seqNum)
 
     REGION_UNINIT(pScreen,&updateCopyRegion);
 
-    handleNewFrame = 1;
+    handleNewBlock = 1;
     for (i = 0; i < REGION_NUM_RECTS(&updateRegion); i++) {
 	int x = REGION_RECTS(&updateRegion)[i].x1;
 	int y = REGION_RECTS(&updateRegion)[i].y1;
@@ -1578,14 +1678,15 @@ rfbSendFramebufferUpdate(cl, theRegionPtr, seqNum)
 	    break;
 	}
     }
-    handleNewFrame = 0;
+    handleNewBlock = 0;
 
     REGION_UNINIT(pScreen,&updateRegion);
 
     if (nUpdateRegionRects == 0xFFFF && !rfbSendLastRectMarker(cl))
 	return FALSE;
 
-    rfbLog("Sending at end of rfbSendFramebufferUpdate\n");
+    RFB_LOG("Sending at end of rfbSendFramebufferUpdate\n");
+    *numBytes = ublen;
 
     if (!rfbSendUpdateBuf(cl))
 	return FALSE;
@@ -1750,7 +1851,7 @@ rfbSendRectEncodingRaw(cl, x, y, w, h)
 
 	nlines = (UPDATE_BUF_SIZE - ublen) / bytesPerLine;
 	if (nlines == 0) {
-	    rfbLog("rfbSendRectEncodingRaw: send buffer too small for %d "
+	    RFB_LOG("rfbSendRectEncodingRaw: send buffer too small for %d "
 		   "bytes per line\n", bytesPerLine);
 	    rfbCloseSock(cl->sock);
 	    return FALSE;
@@ -1803,7 +1904,7 @@ rfbSendUpdateBuf(cl)
     rfbClientPtr cl;
 {
     if (cl->measuring) {
-        rfbLog("Measured %d bytes (not in sending mode)\n", ublen);
+        RFB_LOG("Measured %d bytes (not in sending mode)\n", ublen);
         return TRUE;
     }
 
@@ -1820,7 +1921,7 @@ rfbSendUpdateBuf(cl)
 
     if (cl->useUdp) {
         if (ublen > MAX_UPDATE_SIZE) {
-            rfbLog("Tried to send %d bytes over UDP, but too large! Killing the client. MaxUpdateSize=%d\n", ublen, MAX_UPDATE_SIZE);
+            RFB_LOG("Tried to send %d bytes over UDP, but too large! Killing the client. MaxUpdateSize=%d\n", ublen, MAX_UPDATE_SIZE);
             rfbCloseSock(cl->sock);
             return FALSE;
         }
@@ -1836,22 +1937,22 @@ rfbSendUpdateBuf(cl)
             (struct sockaddr *)&client_addr, sizeof client_addr);
 
         if (sent_size == -1) {
-            rfbLog("Error sending UDP message to %s\n", cl->host);
+            RFB_LOG("Error sending UDP message to %s\n", cl->host);
             rfbCloseSock(cl->sock);
             return FALSE;
         }
         if (sent_size != ublen) {
-            rfbLog("rfbSendUpdateBuf sent %d bytes, supposed to send %d\n", sent_size, ublen);
+            RFB_LOG("rfbSendUpdateBuf sent %d bytes, supposed to send %d\n", sent_size, ublen);
             rfbCloseSock(cl->sock);
             return FALSE;
         }
 
-        rfbLog("Sent %d bytes over UDP, ublen=%d\n", sent_size, ublen);
+        RFB_LOG("Sent %d bytes over UDP, ublen=%d\n", sent_size, ublen);
         ublen = 0;
         return TRUE;
     }
 
-    rfbLog("rfbSendUpdateBuf is sending %d bytes\n", ublen);
+    RFB_LOG("rfbSendUpdateBuf is sending %d bytes\n", ublen);
 
     if (ublen > 0 && WriteExact(cl->sock, updateBuf, ublen) < 0) {
 	rfbLogPerror("rfbSendUpdateBuf: write");
@@ -2015,7 +2116,7 @@ rfbProcessUDPInput(sock)
 
     case rfbKeyEvent:
 	if (n != sz_rfbKeyEventMsg) {
-	    rfbLog("rfbProcessUDPInput: key event incorrect length\n");
+	    RFB_LOG("rfbProcessUDPInput: key event incorrect length\n");
 	    rfbDisconnectUDPSock();
 	    return;
 	}
@@ -2026,7 +2127,7 @@ rfbProcessUDPInput(sock)
 
     case rfbPointerEvent:
 	if (n != sz_rfbPointerEventMsg) {
-	    rfbLog("rfbProcessUDPInput: ptr event incorrect length\n");
+	    RFB_LOG("rfbProcessUDPInput: ptr event incorrect length\n");
 	    rfbDisconnectUDPSock();
 	    return;
 	}
@@ -2037,7 +2138,7 @@ rfbProcessUDPInput(sock)
 	break;
 
     default:
-	rfbLog("rfbProcessUDPInput: unknown message type %d\n",
+	RFB_LOG("rfbProcessUDPInput: unknown message type %d\n",
 	       msg.type);
 	rfbDisconnectUDPSock();
     }
