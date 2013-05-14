@@ -1,0 +1,127 @@
+May 14, 2013 4:16:04 PM com.glavsoft.viewer.Viewer <init>
+INFO: TightVNC Viewer version null
+May 14, 2013 4:16:04 PM java.util.prefs.WindowsPreferences <init>
+WARNING: Could not open/create prefs root node Software\JavaSoft\Prefs at root 0x80000002. Windows RegCreateKeyEx(...) returned error code 5.
+May 14, 2013 4:16:05 PM com.glavsoft.viewer.swing.SwingNetworkConnectionWorker doInBackground
+INFO: Trying to connect to joshma.mit.edu:5901
+May 14, 2013 4:16:05 PM com.glavsoft.viewer.swing.SwingNetworkConnectionWorker doInBackground
+INFO: Connecting to host joshma.mit.edu:5901
+May 14, 2013 4:16:05 PM com.glavsoft.viewer.ConnectionPresenter successfulNetworkConnection
+INFO: Connected
+May 14, 2013 4:16:05 PM com.glavsoft.viewer.swing.SwingRfbConnectionWorker doInBackground
+INFO: Handshaking with remote host
+May 14, 2013 4:16:05 PM com.glavsoft.rfb.protocol.state.HandshakeState handshake
+INFO: Server sent protocol string: RFB 003.008
+May 14, 2013 4:16:05 PM com.glavsoft.rfb.protocol.state.HandshakeState handshake
+INFO: Set protocol version to: 3.8
+May 14, 2013 4:16:05 PM com.glavsoft.rfb.protocol.state.SecurityTypeState negotiateAboutSecurityType
+INFO: Security Types received (2): [2, 16]
+May 14, 2013 4:16:05 PM com.glavsoft.rfb.protocol.state.SecurityTypeState negotiateAboutSecurityType
+INFO: Security Type accepted: TIGHT_AUTHENTICATION
+May 14, 2013 4:16:05 PM com.glavsoft.rfb.protocol.auth.TightAuthentication initAuthorization
+INFO: Auth capability accepted: VNC_AUTHENTICATION
+[P] time 1368562567828
+[P] time 1368562567945
+[P] time 1368562568362
+[P] time 1368562569092
+[P] time 1368562569304
+[P] time 1368562569351
+[P] time 1368562569627
+[P] time 1368562569904
+[P] time 1368562569992
+[P] time 1368562570126
+[P] seqNum 1 time 1368562570255
+[P] seqNum 2 time 1368562570261
+[P] seqNum 3 time 1368562570265
+[P] seqNum 4 time 1368562570270
+[P] seqNum 5 time 1368562570272
+[P] seqNum 6 time 1368562570280
+[P] seqNum 7 time 1368562570286
+[P] seqNum 8 time 1368562570291
+[P] seqNum 10 time 1368562570336
+[P] seqNum 12 time 1368562570781
+[P] seqNum 14 time 1368562570980
+[P] seqNum 16 time 1368562571139
+[P] seqNum 18 time 1368562571250
+[P] seqNum 20 time 1368562571718
+[P] seqNum 22 time 1368562572321
+[P] seqNum 24 time 1368562572412
+[P] seqNum 26 time 1368562572608
+[P] seqNum 28 time 1368562572933
+[P] seqNum 30 time 1368562573239
+[P] seqNum 36 time 1368562573897
+[P] seqNum 38 time 1368562574008
+[P] seqNum 40 time 1368562574132
+[P] seqNum 42 time 1368562574207
+[P] seqNum 44 time 1368562574360
+[P] seqNum 48 time 1368562574619
+[P] seqNum 49 time 1368562574623
+[P] seqNum 50 time 1368562574627
+[P] seqNum 52 time 1368562574684
+[P] seqNum 54 time 1368562574789
+[P] seqNum 55 time 1368562574797
+[P] seqNum 56 time 1368562574801
+[P] seqNum 57 time 1368562574809
+[P] seqNum 58 time 1368562574815
+[P] seqNum 59 time 1368562574822
+[P] seqNum 60 time 1368562574828
+[P] seqNum 61 time 1368562574833
+[P] seqNum 62 time 1368562574840
+[P] seqNum 63 time 1368562574846
+[P] seqNum 64 time 1368562574850
+[P] seqNum 65 time 1368562574854
+[P] seqNum 66 time 1368562574858
+[P] seqNum 67 time 1368562574861
+[P] seqNum 68 time 1368562574866
+[P] seqNum 69 time 1368562574870
+[P] seqNum 70 time 1368562574873
+[P] seqNum 71 time 1368562574875
+[P] seqNum 72 time 1368562574878
+[P] seqNum 73 time 1368562574880
+[P] seqNum 74 time 1368562574882
+[P] seqNum 75 time 1368562574885
+[P] seqNum 76 time 1368562574887
+[P] seqNum 77 time 1368562574889
+[P] seqNum 78 time 1368562574891
+[P] seqNum 79 time 1368562574894
+[P] seqNum 80 time 1368562574896
+[P] seqNum 81 time 1368562574898
+[P] seqNum 82 time 1368562574901
+[P] seqNum 83 time 1368562574904
+[P] seqNum 84 time 1368562574908
+[P] seqNum 85 time 1368562574913
+[P] seqNum 86 time 1368562574915
+[P] seqNum 88 time 1368562574917
+[P] seqNum 90 time 1368562576313
+[P] seqNum 91 time 1368562576314
+[P] seqNum 92 time 1368562576318
+[P] seqNum 93 time 1368562576320
+[P] seqNum 95 time 1368562576349
+[P] seqNum 99 time 1368562577113
+[P] seqNum 100 time 1368562577117
+[P] seqNum 101 time 1368562577120
+[P] seqNum 102 time 1368562577124
+[P] seqNum 103 time 1368562577131
+[P] seqNum 105 time 1368562577307
+[P] seqNum 106 time 1368562577310
+[P] seqNum 107 time 1368562577314
+[P] seqNum 108 time 1368562577317
+[P] seqNum 109 time 1368562577318
+[P] seqNum 110 time 1368562577321
+[P] seqNum 111 time 1368562577324
+[P] seqNum 112 time 1368562577327
+[P] seqNum 113 time 1368562577328
+[P] seqNum 114 time 1368562577334
+[P] seqNum 116 time 1368562577338
+[P] seqNum 115 time 1368562577339
+[P] seqNum 117 time 1368562577345
+[P] seqNum 118 time 1368562577353
+[P] seqNum 119 time 1368562577359
+[P] seqNum 121 time 1368562577360
+[P] seqNum 125 time 1368562577774
+[P] seqNum 127 time 1368562578296
+May 14, 2013 4:16:18 PM com.glavsoft.rfb.protocol.ReceiverTask run
+SEVERE: Close session: Cannot read byte
+May 14, 2013 4:16:18 PM com.glavsoft.viewer.Viewer closeApp
+INFO: Connections cancelled.
+[P] seqNum 129 time 1368562578941

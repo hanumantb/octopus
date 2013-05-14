@@ -164,11 +164,9 @@ public class ReceiverTask implements Runnable {
 		long sequenceNumber = reader.readUInt32();
 		boolean sequenceNumberValid = (sequenceNumber < 0xffffffffL);
 		if (sequenceNumberValid) {
-			System.out.printf("[P] seqNum %d time %d\n", sequenceNumber, new Date().getTime());
 			largestSequenceNumber = Math.max(largestSequenceNumber, sequenceNumber);
-		} else {
-			System.out.printf("[P] time %d\n", new Date().getTime());
 		}
+		System.out.printf("[P] seqNum %d time %d\n", sequenceNumber, new Date().getTime());
 		boolean updateValid = !(largestSequenceNumber - sequenceNumber > MAX_SEQUENCE_NUMBER_REORDERING);
 		
 		while (numberOfRectangles-- > 0) {
