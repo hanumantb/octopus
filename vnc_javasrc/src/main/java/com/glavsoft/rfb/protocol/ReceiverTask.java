@@ -67,6 +67,7 @@ public class ReceiverTask implements Runnable {
 	
 	private long largestSequenceNumber = -1;
 	private static final long MAX_SEQUENCE_NUMBER_REORDERING = 32;
+	private int lastServerEventId = 0;
 
 	public ReceiverTask(Reader reader,
 	                    IRepaintController repaintController, ClipboardController clipboardController,
@@ -160,6 +161,19 @@ public class ReceiverTask implements Runnable {
 	public void framebufferUpdateMessage() throws CommonException {
 		reader.readByte(); // padding
 		int numberOfRectangles = reader.readUInt16();
+		
+		int serverEventId = reader.readInt32();
+		System.out.println(serverEventId);
+		long now = System.currentTimeMillis();
+		for (int i = lastServerEventId; i <= serverEventId; i++) {
+			synchronized (ProtocolContext.event) {
+				if (ProtocolContext.event.containsKey(i)) {
+					System.out.printf("[E] eventId %d timeDiff %d\n", i, now - ProtocolContext.event.get(i));
+					ProtocolContext.event.remove(i);
+				}
+			}
+		}
+		lastServerEventId = serverEventId;
 		
 		long sequenceNumber = reader.readUInt32();
 		boolean sequenceNumberValid = (sequenceNumber < 0xffffffffL);

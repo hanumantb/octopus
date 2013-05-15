@@ -26,6 +26,8 @@ package com.glavsoft.rfb.protocol;
 
 import com.glavsoft.exceptions.TransportException;
 import com.glavsoft.rfb.client.ClientToServerMessage;
+import com.glavsoft.rfb.client.KeyEventMessage;
+import com.glavsoft.rfb.client.PointerEventMessage;
 import com.glavsoft.transport.Writer;
 
 import java.io.PrintWriter;
@@ -38,6 +40,8 @@ public class SenderTask implements Runnable {
 	private final Writer writer;
 	private final ProtocolContext protocolContext;
 	private volatile boolean isRunning = false;
+	
+	private int currentEventId = 0;
 
 	/**
 	 * Create sender task
@@ -61,6 +65,27 @@ public class SenderTask implements Runnable {
 			ClientToServerMessage message;
 			try {
 				message = queue.get();
+				
+				if (message instanceof KeyEventMessage) {
+					KeyEventMessage kMessage = (KeyEventMessage) message;
+					kMessage.eventId = currentEventId;
+					synchronized (ProtocolContext.event) {
+						ProtocolContext.event.put(kMessage.eventId,
+								System.currentTimeMillis());
+					}
+					message = kMessage;
+					currentEventId++;
+				} else if (message instanceof PointerEventMessage) {
+					PointerEventMessage pMessage = (PointerEventMessage) message;
+					pMessage.eventId = currentEventId;
+					synchronized (ProtocolContext.event) {
+						ProtocolContext.event.put(pMessage.eventId,
+								System.currentTimeMillis());
+					}
+					message = pMessage;
+					currentEventId++;
+				}
+				
 				if (message != null) {
 					message.send(writer);
 				}

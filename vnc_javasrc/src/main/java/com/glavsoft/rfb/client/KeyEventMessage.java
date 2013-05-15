@@ -28,22 +28,23 @@ import com.glavsoft.exceptions.TransportException;
 import com.glavsoft.transport.Writer;
 
 /**
- * A key press or release. Down-ﬂag is non-zero (true) if the key is now pressed, zero
- * (false) if it is now released. The key itself is speciﬁed using the “keysym” values
- * deﬁned by the X Window System.
+ * A key press or release. Down-ï¬‚ag is non-zero (true) if the key is now pressed, zero
+ * (false) if it is now released. The key itself is speciï¬�ed using the â€œkeysymâ€� values
+ * deï¬�ned by the X Window System.
  * 1 - U8  - message-type
- * 1 - U8  - down-ﬂag
+ * 1 - U8  - down-ï¬‚ag
  * 2 - -   - padding
  * 4 - U32 - key
- * For most ordinary keys, the “keysym” is the same as the corresponding ASCII value.
- * For full details, see The Xlib Reference Manual, published by O’Reilly & Associates,
- * or see the header ﬁle <X11/keysymdef.h> from any X Window System installa-
+ * For most ordinary keys, the â€œkeysymâ€� is the same as the corresponding ASCII value.
+ * For full details, see The Xlib Reference Manual, published by Oâ€™Reilly & Associates,
+ * or see the header ï¬�le <X11/keysymdef.h> from any X Window System installa-
  * tion.
  */
 public class KeyEventMessage implements ClientToServerMessage {
 
 	private final int key;
 	private final boolean downFlag;
+	public int eventId = 0;
 
 	public KeyEventMessage(int key, boolean downFlag) {
 		this.downFlag = downFlag;
@@ -56,6 +57,7 @@ public class KeyEventMessage implements ClientToServerMessage {
 		writer.writeByte(downFlag ? 1 : 0);
 		writer.writeInt16(0); // padding
 		writer.write(key);
+		writer.write(eventId); //
 		writer.flush();
 	}
 

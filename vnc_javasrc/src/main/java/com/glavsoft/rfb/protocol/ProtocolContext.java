@@ -24,6 +24,10 @@
 
 package com.glavsoft.rfb.protocol;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.logging.Logger;
+
 import com.glavsoft.rfb.IPasswordRetriever;
 import com.glavsoft.rfb.client.ClientToServerMessage;
 import com.glavsoft.rfb.encoding.PixelFormat;
@@ -31,9 +35,8 @@ import com.glavsoft.rfb.protocol.state.ProtocolState;
 import com.glavsoft.transport.Reader;
 import com.glavsoft.transport.Writer;
 
-import java.util.logging.Logger;
-
 public interface ProtocolContext {
+	Map<Integer, Long> event = new HashMap<Integer, Long>();
 
 	void changeStateTo(ProtocolState state);
 

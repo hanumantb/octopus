@@ -31,6 +31,7 @@ public class PointerEventMessage implements ClientToServerMessage {
 	private final byte buttonMask;
 	private final short x;
 	private final short y;
+	public int eventId = 0;
 
 	public PointerEventMessage(byte buttonMask, short x, short y) {
 		this.buttonMask = buttonMask;
@@ -44,6 +45,8 @@ public class PointerEventMessage implements ClientToServerMessage {
 		writer.writeByte(buttonMask);
 		writer.writeInt16(x);
 		writer.writeInt16(y);
+		writer.writeInt16(0); //
+		writer.write(eventId); //
 		writer.flush();
 	}
 
