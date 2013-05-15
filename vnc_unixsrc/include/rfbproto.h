@@ -523,11 +523,12 @@ typedef struct _rfbFramebufferUpdateMsg {
     CARD8 type;			/* always rfbFramebufferUpdate */
     CARD8 pad;
     CARD16 nRects;
+    CARD32 eventId;
     CARD32 seqNum;
     /* followed by nRects rectangles */
 } rfbFramebufferUpdateMsg;
 
-#define sz_rfbFramebufferUpdateMsg 8
+#define sz_rfbFramebufferUpdateMsg 12
 
 /*
  * Each rectangle of pixel data consists of a header describing the position
@@ -1096,9 +1097,10 @@ typedef struct _rfbKeyEventMsg {
     CARD8 down;			/* true if down (press), false if up */
     CARD16 pad;
     CARD32 key;			/* key is specified as an X keysym */
+    CARD32 eventId;
 } rfbKeyEventMsg;
 
-#define sz_rfbKeyEventMsg 8
+#define sz_rfbKeyEventMsg 12
 
 
 /*-----------------------------------------------------------------------------
@@ -1110,6 +1112,8 @@ typedef struct _rfbPointerEventMsg {
     CARD8 buttonMask;		/* bits 0-7 are buttons 1-8, 0=up, 1=down */
     CARD16 x;
     CARD16 y;
+    CARD16 pad;
+    CARD32 eventId;
 } rfbPointerEventMsg;
 
 #define rfbButton1Mask 1
@@ -1118,7 +1122,7 @@ typedef struct _rfbPointerEventMsg {
 #define rfbButton4Mask 8
 #define rfbButton5Mask 16
 
-#define sz_rfbPointerEventMsg 6
+#define sz_rfbPointerEventMsg 12
 
 
 

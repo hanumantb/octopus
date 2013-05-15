@@ -83,6 +83,7 @@ unsigned long lastAckTime = 0;
 /* Reset compressor variables */
 int handleNewBlock = 0;
 CARD32 frameSeqNumCounter = 0;
+CARD32 lastEventId = 0;
 
 /* Size constants */
 #define MAX_UPDATE_SIZE (2 * (1500) - 100)
@@ -1293,6 +1294,9 @@ rfbProcessClientNormalMessage(cl)
 	if (!isKeyboardEnabled(cl))
 	    return;
 #endif
+
+	lastEventId = msg.ke.eventId;
+
 	if (!rfbViewOnly && !cl->viewOnly) {
 	    KbdAddEvent(msg.ke.down, (KeySym)Swap32IfLE(msg.ke.key), cl);
 	}
@@ -1320,6 +1324,8 @@ rfbProcessClientNormalMessage(cl)
 
 	if (pointerClient && (pointerClient != cl))
 	    return;
+
+	lastEventId = msg.pe.eventId;
 
 	if (msg.pe.buttonMask == 0)
 	    pointerClient = NULL;
@@ -1612,6 +1618,7 @@ rfbSendFramebufferUpdate_numBytes(cl, theRegionPtr, seqNum, numBytes)
 
     fu->type = rfbFramebufferUpdate;
 
+    fu->eventId = lastEventId;
     fu->seqNum = Swap32IfLE(seqNum);
 
     if (nUpdateRegionRects != 0xFFFF) {
