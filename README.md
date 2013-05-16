@@ -1,4 +1,6 @@
-ssp over ssp
-============
+Octopus
+-------
 
-Clients and servers in two directories, have fun.
+- Adaptive VNC with server push over UDP
+- Resilient to varying degrees of RTT, bandwidth, and loss
+- Improves responsiveness for the user
